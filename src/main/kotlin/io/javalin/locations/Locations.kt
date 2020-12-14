@@ -6,10 +6,15 @@ import io.javalin.http.Context
 import io.javalin.http.Handler
 import io.javalin.http.HandlerType
 import io.javalin.plugin.json.JavalinJson
-import java.util.*
-import kotlin.collections.HashMap
-import kotlin.reflect.*
-import kotlin.reflect.full.*
+import kotlin.reflect.KClass
+import kotlin.reflect.KMutableProperty1
+import kotlin.reflect.KProperty1
+import kotlin.reflect.KType
+import kotlin.reflect.full.createInstance
+import kotlin.reflect.full.createType
+import kotlin.reflect.full.declaredMemberProperties
+import kotlin.reflect.full.findAnnotation
+import kotlin.reflect.full.hasAnnotation
 import kotlin.reflect.jvm.javaField
 import kotlin.reflect.jvm.jvmErasure
 
