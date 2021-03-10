@@ -125,12 +125,18 @@ class PathGroup internal constructor(internal val routeGroup: LocationGroup, pat
         val routePath = this.path + normalizePath(path)
         init(PathGroup(routeGroup, routePath))
     }
-
 }
 
 class LocationGroup internal constructor(internal val javalin: Javalin) : LocationApiBuilder<LocationGroup> {
 
     override fun path(path: String, init: PathGroup.() -> Unit) = init(PathGroup(this, path))
+
+}
+
+class ContextAware {
+
+    lateinit var context: Context
+        internal set
 
 }
 
@@ -214,6 +220,10 @@ private fun <T : Any> locationHandler(location: KClass<T>, handler: T.(Context) 
             else -> type.createInstance()
         }
 
+        if (instance is ContextAware) {
+            instance.context = this@hydrate
+        }
+
         fun <V : Any> real(type: KType, value: Any): V? {
             @Suppress("UNCHECKED_CAST")
             return when (value) {
@@ -280,7 +290,7 @@ private fun <T : Any> locationHandler(location: KClass<T>, handler: T.(Context) 
                 is KMutableProperty1 -> property.set(instance, real)
                 else -> {
                     val backingField = property.javaField ?: return
-                    backingField.trySetAccessible()
+                    backingField.isAccessible = true
 
                     backingField.set(instance, real)
                 }
