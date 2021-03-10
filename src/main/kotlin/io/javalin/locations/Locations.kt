@@ -133,7 +133,7 @@ class LocationGroup internal constructor(internal val javalin: Javalin) : Locati
 
 }
 
-class ContextAware {
+open class ContextAware {
 
     lateinit var context: Context
         internal set
