@@ -135,8 +135,12 @@ class LocationGroup internal constructor(internal val javalin: Javalin) : Locati
 
 open class ContextAware {
 
-    lateinit var context: Context
-        internal set
+    private lateinit var _context: Context
+
+    protected val context: Context get() = _context
+    internal fun context(context: Context) {
+        this._context = context
+    }
 
 }
 
@@ -221,7 +225,7 @@ private fun <T : Any> locationHandler(location: KClass<T>, handler: T.(Context) 
         }
 
         if (instance is ContextAware) {
-            instance.context = this@hydrate
+            instance.context(this)
         }
 
         fun <V : Any> real(type: KType, value: Any): V? {
