@@ -366,5 +366,4 @@ private fun <T : Any> locationHandler(location: KClass<T>, handler: T.(Context) 
     return Handler { ctx -> handler(ctx.hydrate(location), ctx) }
 }
 
-inline fun <reified T : Annotation> KAnnotatedElement.hasAnnotation(): Boolean =
-    findAnnotation<T>() != null
+internal inline fun <reified T : Annotation> KAnnotatedElement.hasAnnotation(): Boolean = findAnnotation<T>() != null
