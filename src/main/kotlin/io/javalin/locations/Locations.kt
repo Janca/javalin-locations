@@ -6,6 +6,7 @@ import io.javalin.http.Context
 import io.javalin.http.Handler
 import io.javalin.http.HandlerType
 import io.javalin.plugin.json.JavalinJson
+import kotlin.reflect.KAnnotatedElement
 import kotlin.reflect.KClass
 import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.KProperty1
@@ -14,7 +15,6 @@ import kotlin.reflect.full.createInstance
 import kotlin.reflect.full.createType
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
-import kotlin.reflect.full.hasAnnotation
 import kotlin.reflect.jvm.javaField
 import kotlin.reflect.jvm.jvmErasure
 
@@ -77,9 +77,9 @@ inline fun <reified T : Any> PathGroup.options(permittedRoles: Set<Role> = EMPTY
 @PublishedApi
 internal val HTTP_HANDLER_TYPES = HandlerType.values().filter { it.isHttpMethod() }.toTypedArray()
 
-inline fun <reified T : Any> Javalin.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): Javalin = handle(methods = HTTP_HANDLER_TYPES, permittedRoles, handler)
-inline fun <reified T : Any> LocationGroup.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): LocationGroup = handle(methods = HTTP_HANDLER_TYPES, permittedRoles, handler)
-inline fun <reified T : Any> PathGroup.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): PathGroup = handle(methods = HTTP_HANDLER_TYPES, permittedRoles, handler)
+inline fun <reified T : Any> Javalin.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): Javalin = handle<T>(permittedRoles = permittedRoles, handler = handler, methods = *HTTP_HANDLER_TYPES)
+inline fun <reified T : Any> LocationGroup.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): LocationGroup = handle<T>(permittedRoles = permittedRoles, handler = handler, methods = *HTTP_HANDLER_TYPES)
+inline fun <reified T : Any> PathGroup.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): PathGroup = handle<T>(permittedRoles = permittedRoles, handler = handler, methods = *HTTP_HANDLER_TYPES)
 
 inline fun <reified T : Any> Javalin.handle(vararg methods: HandlerType, permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): Javalin {
     methods.forEach { httpMethod ->
@@ -260,7 +260,7 @@ private fun <T : Any> locationHandler(location: KClass<T>, handler: T.(Context) 
 
                 is List<*> -> {
                     val firstType = type.arguments.first().type ?: throw IllegalStateException()
-                    val realList: List<Any?> = value.map { real(firstType, it as Any) }
+                    val realList: List<Any?> = value.map { real<V>(firstType, it as Any) }
                     realList.filterNotNull() as V
                 }
 
@@ -365,3 +365,6 @@ private fun <T : Any> locationHandler(location: KClass<T>, handler: T.(Context) 
 
     return Handler { ctx -> handler(ctx.hydrate(location), ctx) }
 }
+
+inline fun <reified T : Annotation> KAnnotatedElement.hasAnnotation(): Boolean =
+    findAnnotation<T>() != null

@@ -9,5 +9,8 @@
         <module name="javalin-locations" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="javalin-locations" target="1.8" />
+    </bytecodeTargetLevel>
   </component>
 </project>
