@@ -20,7 +20,7 @@ import kotlin.reflect.jvm.jvmErasure
 
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class Location(val path: String, val hydrateAllProperties: Boolean = true)
+annotation class Location(val path: String, val promiscuousHydrator: Boolean = true)
 
 @Target(AnnotationTarget.PROPERTY)
 @Retention(AnnotationRetention.RUNTIME)
@@ -39,7 +39,10 @@ annotation class QueryParameter(val name: String = "")
 annotation class UrlParameter(val name: String = "")
 
 // PRIMARY ENTRY-POINT
-fun Javalin.locations(init: LocationGroup.() -> Unit) = init(LocationGroup(this))
+inline fun Javalin.locations(init: LocationGroup.() -> Unit): Javalin {
+    init(LocationGroup(this))
+    return this
+}
 
 @PublishedApi
 internal val EMPTY_ROLE_SET: Set<Role> = emptySet()
@@ -101,6 +104,7 @@ inline fun <reified T : Any> LocationGroup.handle(vararg methods: HandlerType, p
     return this
 }
 
+
 inline fun <reified T : Any> PathGroup.handle(vararg methods: HandlerType, permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): PathGroup {
     methods.forEach { httpMethod ->
         location(T::class, httpMethod, {
@@ -113,23 +117,26 @@ inline fun <reified T : Any> PathGroup.handle(vararg methods: HandlerType, permi
 
 interface LocationApiBuilder<T : LocationApiBuilder<T>> {
 
-    fun path(path: String, init: PathGroup.() -> Unit)
+    fun path(path: String, init: PathGroup.() -> Unit): LocationApiBuilder<*>
 
 }
 
-class PathGroup internal constructor(internal val routeGroup: LocationGroup, path: String) :
-    LocationApiBuilder<PathGroup> {
+class PathGroup internal constructor(internal val routeGroup: LocationGroup, path: String) : LocationApiBuilder<PathGroup> {
     internal val path = normalizePath(path)
 
-    override fun path(path: String, init: PathGroup.() -> Unit) {
+    override fun path(path: String, init: PathGroup.() -> Unit): LocationApiBuilder<*> {
         val routePath = this.path + normalizePath(path)
         init(PathGroup(routeGroup, routePath))
+        return routeGroup
     }
 }
 
-class LocationGroup internal constructor(internal val javalin: Javalin) : LocationApiBuilder<LocationGroup> {
+class LocationGroup @PublishedApi internal constructor(internal val javalin: Javalin) : LocationApiBuilder<LocationGroup> {
 
-    override fun path(path: String, init: PathGroup.() -> Unit) = init(PathGroup(this, path))
+    override fun path(path: String, init: PathGroup.() -> Unit): LocationApiBuilder<*> {
+        init(PathGroup(this, path))
+        return this
+    }
 
 }
 
@@ -305,12 +312,16 @@ private fun <T : Any> locationHandler(location: KClass<T>, handler: T.(Context) 
         val queryParameters = queryParamMap()
         val formParameters = formParamMap()
 
-        val allParameters: Map<String, Any> = HashMap<String, Any>()
-            .apply {
-                putAll(pathParameters)
-                putAll(queryParameters)
-                putAll(formParameters)
-            }
+        val allParameters: Map<String, Any> = when (locationAnnotation?.promiscuousHydrator) {
+            true -> HashMap<String, Any>()
+                .apply {
+                    putAll(pathParameters)
+                    putAll(queryParameters)
+                    putAll(formParameters)
+                }
+
+            else -> emptyMap()
+        }
 
         type.declaredMemberProperties.forEach { property ->
             val propertyName = property.name
@@ -348,7 +359,7 @@ private fun <T : Any> locationHandler(location: KClass<T>, handler: T.(Context) 
                     }
                 }
 
-            locationAnnotation?.hydrateAllProperties
+            locationAnnotation?.promiscuousHydrator
                 ?.let { hydrateAll ->
                     if (hydrateAll) {
                         val value = allParameters[propertyName]

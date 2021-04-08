@@ -6,7 +6,7 @@
 
     <groupId>io.javalin.locations</groupId>
     <artifactId>javalin-locations</artifactId>
-    <version>${javalin.version}</version>
+    <version>${javalin.version}.3</version>
     <packaging>jar</packaging>
 
     <name>io.javalin.locations javalin-locations</name>
@@ -71,7 +71,7 @@
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-reflect</artifactId>
-            <version>${kotlin.version}</version>
+            <version>1.4.10</version>
         </dependency>
 
         <dependency>
