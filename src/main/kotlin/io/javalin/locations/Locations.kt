@@ -115,25 +115,23 @@ inline fun <reified T : Any> PathGroup.handle(vararg methods: HandlerType, permi
     return this
 }
 
-interface LocationApiBuilder<T : LocationApiBuilder<T>> {
-
-    fun path(path: String, init: PathGroup.() -> Unit): LocationApiBuilder<*>
-
+interface LocationApiBuilder {
+    fun path(path: String, init: PathGroup.() -> Unit): LocationApiBuilder
 }
 
-class PathGroup internal constructor(internal val routeGroup: LocationGroup, path: String) : LocationApiBuilder<PathGroup> {
+class PathGroup internal constructor(internal val routeGroup: LocationGroup, path: String) : LocationApiBuilder {
     internal val path = normalizePath(path)
 
-    override fun path(path: String, init: PathGroup.() -> Unit): LocationApiBuilder<*> {
+    override fun path(path: String, init: PathGroup.() -> Unit): LocationApiBuilder {
         val routePath = this.path + normalizePath(path)
         init(PathGroup(routeGroup, routePath))
         return routeGroup
     }
 }
 
-class LocationGroup @PublishedApi internal constructor(internal val javalin: Javalin) : LocationApiBuilder<LocationGroup> {
+class LocationGroup @PublishedApi internal constructor(internal val javalin: Javalin) : LocationApiBuilder {
 
-    override fun path(path: String, init: PathGroup.() -> Unit): LocationApiBuilder<*> {
+    override fun path(path: String, init: PathGroup.() -> Unit): LocationApiBuilder {
         init(PathGroup(this, path))
         return this
     }

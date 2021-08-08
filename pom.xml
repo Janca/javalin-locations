@@ -6,7 +6,7 @@
 
     <groupId>io.javalin.locations</groupId>
     <artifactId>javalin-locations</artifactId>
-    <version>${javalin.version}.3</version>
+    <version>${javalin.version}</version>
     <packaging>jar</packaging>
 
     <name>io.javalin.locations javalin-locations</name>
@@ -19,7 +19,7 @@
 
         <junit.version>4.12</junit.version>
 
-        <javalin.version>3.13.4</javalin.version>
+        <javalin.version>3.13.10</javalin.version>
         <jackson.version>2.10.3</jackson.version>
         <slf4j.version>1.8.0-beta4</slf4j.version>
 
@@ -71,7 +71,7 @@
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-reflect</artifactId>
-            <version>1.4.10</version>
+            <version>${kotlin.version}</version>
         </dependency>
 
         <dependency>
