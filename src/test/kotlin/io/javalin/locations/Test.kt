@@ -2,6 +2,14 @@ package io.javalin.locations
 
 import io.javalin.Javalin
 
+@Location("/test")
+data class Test(val token: String? = null) {
+
+    @Location("/:name")
+    data class Edit(val name: String? = null)
+
+}
+
 fun main() {
 
     val app = Javalin.create()
@@ -22,6 +30,10 @@ fun main() {
             }
 
             context.result(pong)
+        }
+
+        post<Test.Edit> { ctx ->
+            ctx.status(200)
         }
 
         configureAuthenticationRouting()

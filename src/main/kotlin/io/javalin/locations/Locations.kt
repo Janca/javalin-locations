@@ -6,6 +6,7 @@ import io.javalin.http.Context
 import io.javalin.http.Handler
 import io.javalin.http.HandlerType
 import io.javalin.plugin.json.JavalinJson
+import java.util.*
 import kotlin.reflect.KAnnotatedElement
 import kotlin.reflect.KClass
 import kotlin.reflect.KMutableProperty1
@@ -222,20 +223,34 @@ internal fun normalizePath(path: String): String {
 }
 
 private fun <T : Any> locationPath(location: KClass<T>): String {
-    val locationClassMembers = location.declaredMemberProperties
-    val nestedLocationMembers = locationClassMembers.filter { (it.returnType.classifier as? KClass<*>)?.hasAnnotation<Location>() == true }
+    val path = buildString {
+        var enclosingClass: Class<*>? = null
 
-    val parentPath: String = nestedLocationMembers
-        .joinToString("/") {
-            (it.returnType.classifier as? KClass<*>)?.findAnnotation<Location>()?.path ?: throw IllegalStateException()
+        val parentPathLocations = LinkedList<Location>()
+        do {
+            val next = location.java.enclosingClass
+            if (enclosingClass == next) {
+                break
+            }
+
+            enclosingClass = next
+            val enclosingAnnotation = enclosingClass.findAnnotation<Location>() ?: break
+            parentPathLocations.addFirst(enclosingAnnotation)
+        } while (true)
+
+        parentPathLocations.forEach {
+            val path = normalizePath(it.path)
+            append(path)
         }
 
-    val locationAnnotation = location.findAnnotation<Location>()
-    val locationPath = locationAnnotation?.path
-        ?: throw IllegalArgumentException("Location '${location.qualifiedName}' is missing annotation 'Location'.")
+        val locationAnnotation = location.findAnnotation<Location>()
+            ?: throw IllegalArgumentException("Location '${location.qualifiedName}' is missing annotation 'Location'.")
 
-    val path = parentPath + locationPath
-    return normalizePath(path)
+        val locationPath = normalizePath(locationAnnotation.path)
+        append(locationPath)
+    }
+
+    return path
 }
 
 private fun <T : Any> locationHandler(location: KClass<T>, handler: T.(Context) -> Unit): Handler {
@@ -399,3 +414,6 @@ private fun <T : Any> locationHandler(location: KClass<T>, handler: T.(Context) 
 }
 
 internal inline fun <reified T : Annotation> KAnnotatedElement.hasAnnotation(): Boolean = findAnnotation<T>() != null
+internal inline fun <reified T : Annotation> Class<*>.findAnnotation(): T? {
+    return getDeclaredAnnotation(T::class.java)
+}
