@@ -18,7 +18,6 @@ fun main() {
     data class Ping(val token: String? = null)
 
     app.locations {
-
         get<Ping> { context ->
             val pong = buildString {
                 append("Pong")
