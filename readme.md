@@ -1,7 +1,8 @@
-package io.javalin.locations
+# javalin-locations
 
-import io.javalin.Javalin
+### *Annotation library for routing in Javalin, loosely based on the Locations feature library for Ktor.*
 
+```
 fun main() {
 
     val app = Javalin.create()
@@ -32,6 +33,10 @@ fun main() {
     app.start(8080)
 
 }
+
+/*
+ * Split routing into files or functions.
+ */
 
 fun LocationBuilder.configureAuthenticationRouting(): LocationBuilder {
 
@@ -73,3 +78,4 @@ fun LocationBuilder.configureUserRouting(): LocationBuilder {
 
     return this
 }
+```

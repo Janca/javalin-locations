@@ -15,12 +15,27 @@ import kotlin.reflect.full.createInstance
 import kotlin.reflect.full.createType
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
+import kotlin.reflect.full.isSubtypeOf
+import kotlin.reflect.full.starProjectedType
 import kotlin.reflect.jvm.javaField
 import kotlin.reflect.jvm.jvmErasure
 
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class Location(val path: String, val promiscuousHydrator: Boolean = true)
+annotation class Location(
+    val path: String,
+    val allowedHydrationMethods: Array<out HydrationMethod> = [
+        HydrationMethod.POST_FORM_PARAMETERS,
+        HydrationMethod.QUERY_PARAMETERS,
+        HydrationMethod.URL_PARAMETERS
+    ]
+)
+
+enum class HydrationMethod {
+    POST_FORM_PARAMETERS,
+    QUERY_PARAMETERS,
+    URL_PARAMETERS
+}
 
 @Target(AnnotationTarget.PROPERTY)
 @Retention(AnnotationRetention.RUNTIME)
@@ -44,6 +59,11 @@ inline fun Javalin.locations(init: LocationGroup.() -> Unit): Javalin {
     return this
 }
 
+fun <T : Any> Context.result(payload: T): Context {
+    val json = JavalinJson.toJson(payload)
+    return result(json).contentType("application/json")
+}
+
 @PublishedApi
 internal val EMPTY_ROLE_SET: Set<Role> = emptySet()
 
@@ -57,32 +77,22 @@ inline fun <reified T : Any> Javalin.trace(permittedRoles: Set<Role> = EMPTY_ROL
 inline fun <reified T : Any> Javalin.connect(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): Javalin = location(T::class, HandlerType.CONNECT, handler, permittedRoles)
 inline fun <reified T : Any> Javalin.options(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): Javalin = location(T::class, HandlerType.OPTIONS, handler, permittedRoles)
 
-inline fun <reified T : Any> LocationGroup.get(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationGroup = location(T::class, HandlerType.GET, handler, permittedRoles)
-inline fun <reified T : Any> LocationGroup.post(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationGroup = location(T::class, HandlerType.POST, handler, permittedRoles)
-inline fun <reified T : Any> LocationGroup.put(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationGroup = location(T::class, HandlerType.PUT, handler, permittedRoles)
-inline fun <reified T : Any> LocationGroup.patch(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationGroup = location(T::class, HandlerType.PATCH, handler, permittedRoles)
-inline fun <reified T : Any> LocationGroup.delete(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationGroup = location(T::class, HandlerType.DELETE, handler, permittedRoles)
-inline fun <reified T : Any> LocationGroup.head(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationGroup = location(T::class, HandlerType.HEAD, handler, permittedRoles)
-inline fun <reified T : Any> LocationGroup.trace(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationGroup = location(T::class, HandlerType.TRACE, handler, permittedRoles)
-inline fun <reified T : Any> LocationGroup.connect(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationGroup = location(T::class, HandlerType.CONNECT, handler, permittedRoles)
-inline fun <reified T : Any> LocationGroup.options(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationGroup = location(T::class, HandlerType.OPTIONS, handler, permittedRoles)
-
-inline fun <reified T : Any> PathGroup.get(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): PathGroup = location(T::class, HandlerType.GET, handler, permittedRoles)
-inline fun <reified T : Any> PathGroup.post(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): PathGroup = location(T::class, HandlerType.POST, handler, permittedRoles)
-inline fun <reified T : Any> PathGroup.put(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): PathGroup = location(T::class, HandlerType.PUT, handler, permittedRoles)
-inline fun <reified T : Any> PathGroup.patch(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): PathGroup = location(T::class, HandlerType.PATCH, handler, permittedRoles)
-inline fun <reified T : Any> PathGroup.delete(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): PathGroup = location(T::class, HandlerType.DELETE, handler, permittedRoles)
-inline fun <reified T : Any> PathGroup.head(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): PathGroup = location(T::class, HandlerType.HEAD, handler, permittedRoles)
-inline fun <reified T : Any> PathGroup.trace(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): PathGroup = location(T::class, HandlerType.TRACE, handler, permittedRoles)
-inline fun <reified T : Any> PathGroup.connect(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): PathGroup = location(T::class, HandlerType.CONNECT, handler, permittedRoles)
-inline fun <reified T : Any> PathGroup.options(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): PathGroup = location(T::class, HandlerType.OPTIONS, handler, permittedRoles)
+inline fun <reified T : Any> LocationBuilder.get(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationBuilder = location(T::class, HandlerType.GET, handler, permittedRoles)
+inline fun <reified T : Any> LocationBuilder.post(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationBuilder = location(T::class, HandlerType.POST, handler, permittedRoles)
+inline fun <reified T : Any> LocationBuilder.put(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationBuilder = location(T::class, HandlerType.PUT, handler, permittedRoles)
+inline fun <reified T : Any> LocationBuilder.patch(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationBuilder = location(T::class, HandlerType.PATCH, handler, permittedRoles)
+inline fun <reified T : Any> LocationBuilder.delete(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationBuilder = location(T::class, HandlerType.DELETE, handler, permittedRoles)
+inline fun <reified T : Any> LocationBuilder.head(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationBuilder = location(T::class, HandlerType.HEAD, handler, permittedRoles)
+inline fun <reified T : Any> LocationBuilder.trace(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationBuilder = location(T::class, HandlerType.TRACE, handler, permittedRoles)
+inline fun <reified T : Any> LocationBuilder.connect(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationBuilder = location(T::class, HandlerType.CONNECT, handler, permittedRoles)
+inline fun <reified T : Any> LocationBuilder.options(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationBuilder = location(T::class, HandlerType.OPTIONS, handler, permittedRoles)
 
 @PublishedApi
 internal val HTTP_HANDLER_TYPES = HandlerType.values().filter { it.isHttpMethod() }.toTypedArray()
 
-inline fun <reified T : Any> Javalin.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): Javalin = handle<T>(permittedRoles = permittedRoles, handler = handler, methods = *HTTP_HANDLER_TYPES)
-inline fun <reified T : Any> LocationGroup.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): LocationGroup = handle<T>(permittedRoles = permittedRoles, handler = handler, methods = *HTTP_HANDLER_TYPES)
-inline fun <reified T : Any> PathGroup.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): PathGroup = handle<T>(permittedRoles = permittedRoles, handler = handler, methods = *HTTP_HANDLER_TYPES)
+inline fun <reified T : Any> Javalin.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): Javalin = handle(permittedRoles = permittedRoles, handler = handler, methods = *HTTP_HANDLER_TYPES)
+inline fun <reified T : Any> LocationGroup.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): LocationGroup = handle(permittedRoles = permittedRoles, handler = handler, methods = *HTTP_HANDLER_TYPES)
+inline fun <reified T : Any> PathGroup.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): PathGroup = handle(permittedRoles = permittedRoles, handler = handler, methods = *HTTP_HANDLER_TYPES)
 
 inline fun <reified T : Any> Javalin.handle(vararg methods: HandlerType, permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): Javalin {
     methods.forEach { httpMethod ->
@@ -115,23 +125,25 @@ inline fun <reified T : Any> PathGroup.handle(vararg methods: HandlerType, permi
     return this
 }
 
-interface LocationApiBuilder {
-    fun path(path: String, init: PathGroup.() -> Unit): LocationApiBuilder
+interface LocationBuilder {
+
+    fun path(path: String, init: PathGroup.() -> Unit): LocationBuilder
+
 }
 
-class PathGroup internal constructor(internal val routeGroup: LocationGroup, path: String) : LocationApiBuilder {
+class PathGroup internal constructor(internal val routeGroup: LocationGroup, path: String) : LocationBuilder {
     internal val path = normalizePath(path)
 
-    override fun path(path: String, init: PathGroup.() -> Unit): LocationApiBuilder {
+    override fun path(path: String, init: PathGroup.() -> Unit): LocationBuilder {
         val routePath = this.path + normalizePath(path)
         init(PathGroup(routeGroup, routePath))
         return routeGroup
     }
 }
 
-class LocationGroup @PublishedApi internal constructor(internal val javalin: Javalin) : LocationApiBuilder {
+class LocationGroup @PublishedApi internal constructor(internal val javalin: Javalin) : LocationBuilder {
 
-    override fun path(path: String, init: PathGroup.() -> Unit): LocationApiBuilder {
+    override fun path(path: String, init: PathGroup.() -> Unit): LocationBuilder {
         init(PathGroup(this, path))
         return this
     }
@@ -166,6 +178,17 @@ private val NULLABLE_FLOAT_TYPE = Float::class.createType(nullable = true)
 private val NULLABLE_LONG_TYPE = Long::class.createType(nullable = true)
 private val NULLABLE_BOOLEAN_TYPE = Boolean::class.createType(nullable = true)
 private val NULLABLE_STRING_TYPE = String::class.createType(nullable = true)
+
+@PublishedApi
+internal fun <T : Any> LocationBuilder.location(location: KClass<T>, method: HandlerType, handler: T.(Context) -> Unit, permittedRoles: Set<Role>): LocationBuilder {
+    when (this) {
+        is LocationGroup -> this.location(location, method, handler, permittedRoles)
+        is PathGroup -> this.location(location, method, handler, permittedRoles)
+        else -> throw IllegalArgumentException()
+    }
+
+    return this
+}
 
 @PublishedApi
 internal fun <T : Any> PathGroup.location(location: KClass<T>, method: HandlerType, handler: T.(Context) -> Unit, permittedRoles: Set<Role>): PathGroup {
@@ -264,9 +287,15 @@ private fun <T : Any> locationHandler(location: KClass<T>, handler: T.(Context) 
                 }
 
                 is List<*> -> {
-                    val firstType = type.arguments.first().type ?: throw IllegalStateException()
-                    val realList: List<Any?> = value.map { real<V>(firstType, it as Any) }
-                    realList.filterNotNull() as V
+                    when {
+                        type.isSubtypeOf(List::class.starProjectedType) -> {
+                            val firstType = type.arguments.first().type ?: throw IllegalStateException()
+                            val realList: List<Any?> = value.map { real<V>(firstType, it as Any) }
+                            realList.filterNotNull() as V
+                        }
+
+                        else -> real<V>(type, value.filterNotNull().first()) as V
+                    }
                 }
 
                 else -> value as V
@@ -310,15 +339,14 @@ private fun <T : Any> locationHandler(location: KClass<T>, handler: T.(Context) 
         val queryParameters = queryParamMap()
         val formParameters = formParamMap()
 
-        val allParameters: Map<String, Any> = when (locationAnnotation?.promiscuousHydrator) {
-            true -> HashMap<String, Any>()
-                .apply {
-                    putAll(pathParameters)
-                    putAll(queryParameters)
-                    putAll(formParameters)
-                }
-
-            else -> emptyMap()
+        val allParameters = HashMap<String, Any>()
+        val hydrationMethods = locationAnnotation?.allowedHydrationMethods
+        hydrationMethods?.forEach {
+            when (it) {
+                HydrationMethod.POST_FORM_PARAMETERS -> allParameters.putAll(formParameters)
+                HydrationMethod.QUERY_PARAMETERS -> allParameters.putAll(queryParameters)
+                HydrationMethod.URL_PARAMETERS -> allParameters.putAll(pathParameters)
+            }
         }
 
         type.declaredMemberProperties.forEach { property ->
@@ -357,16 +385,11 @@ private fun <T : Any> locationHandler(location: KClass<T>, handler: T.(Context) 
                     }
                 }
 
-            locationAnnotation?.promiscuousHydrator
-                ?.let { hydrateAll ->
-                    if (hydrateAll) {
-                        val value = allParameters[propertyName]
-                        value?.let {
-                            setProperty(instance, property, it)
-                            return@forEach
-                        }
-                    }
-                }
+            val value = allParameters[propertyName]
+            value?.let {
+                setProperty(instance, property, it)
+                return@forEach
+            }
         }
 
         return instance
