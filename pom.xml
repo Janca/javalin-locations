@@ -20,7 +20,7 @@
         <junit.version>4.13.2</junit.version>
 
         <javalin.version>3.13.10</javalin.version>
-        <jackson.version>2.13.0-rc1</jackson.version>
+        <jackson.version>2.10.5</jackson.version>
         <slf4j.version>1.8.0-beta4</slf4j.version>
 
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -44,7 +44,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>${jackson.version}</version>
+            <version>${jackson.version}.1</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
