@@ -246,7 +246,7 @@ private val NULLABLE_BOOLEAN_TYPE = Boolean::class.createType(nullable = true)
 private val NULLABLE_STRING_TYPE = String::class.createType(nullable = true)
 
 @PublishedApi
-internal fun <T : Any> LocationBuilder.location(location: KClass<T>, method: HandlerType, handler: T.(Context) -> Unit, permittedRoles: Set<Role>): LocationBuilder {
+internal fun <T : Any, R> LocationBuilder.location(location: KClass<T>, method: HandlerType, handler: T.(Context) -> R, permittedRoles: Set<Role>): LocationBuilder {
     when (this) {
         is LocationGroup -> this.location(location, method, handler, permittedRoles)
         is PathGroup -> this.location(location, method, handler, permittedRoles)
@@ -257,7 +257,7 @@ internal fun <T : Any> LocationBuilder.location(location: KClass<T>, method: Han
 }
 
 @PublishedApi
-internal fun <T : Any> LocationBuilder.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> Unit, permittedRoles: Set<Role>): LocationBuilder {
+internal fun <T : Any, R> LocationBuilder.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> R, permittedRoles: Set<Role>): LocationBuilder {
     when (this) {
         is LocationGroup -> this.location(location, handler, permittedRoles)
         is PathGroup -> this.location(location, handler, permittedRoles)
@@ -268,7 +268,7 @@ internal fun <T : Any> LocationBuilder.location(location: KClass<T>, handler: (W
 }
 
 @PublishedApi
-internal fun <T : Any> PathGroup.location(location: KClass<T>, method: HandlerType, handler: T.(Context) -> Unit, permittedRoles: Set<Role>): PathGroup {
+internal fun <T : Any, R> PathGroup.location(location: KClass<T>, method: HandlerType, handler: T.(Context) -> R, permittedRoles: Set<Role>): PathGroup {
     val locationPath = locationPath(location)
     val locationHandler = locationHandler(location, handler)
     routeGroup.javalin.addHandler(method, "$path$locationPath", locationHandler, permittedRoles)
@@ -276,33 +276,33 @@ internal fun <T : Any> PathGroup.location(location: KClass<T>, method: HandlerTy
 }
 
 @PublishedApi
-internal fun <T : Any> PathGroup.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> Unit, permittedRoles: Set<Role>): PathGroup {
+internal fun <T : Any, R> PathGroup.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> R, permittedRoles: Set<Role>): PathGroup {
     routeGroup.javalin.location(path, location, handler, permittedRoles)
     return this
 }
 
 @PublishedApi
-internal fun <T : Any> LocationGroup.location(location: KClass<T>, method: HandlerType, handler: T.(Context) -> Unit, permittedRoles: Set<Role>): LocationGroup {
+internal fun <T : Any, R> LocationGroup.location(location: KClass<T>, method: HandlerType, handler: T.(Context) -> R, permittedRoles: Set<Role>): LocationGroup {
     javalin.location(location, method, handler, permittedRoles)
     return this
 }
 
 @PublishedApi
-internal fun <T : Any> LocationGroup.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> Unit, permittedRoles: Set<Role>): LocationGroup {
+internal fun <T : Any, R> LocationGroup.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> R, permittedRoles: Set<Role>): LocationGroup {
     javalin.location(location, handler, permittedRoles)
     return this
 }
 
 
 @PublishedApi
-internal fun <T : Any> Javalin.location(location: KClass<T>, method: HandlerType, handler: T.(Context) -> Unit, permittedRoles: Set<Role>): Javalin {
+internal fun <T : Any, R> Javalin.location(location: KClass<T>, method: HandlerType, handler: T.(Context) -> R, permittedRoles: Set<Role>): Javalin {
     val locationPath = locationPath(location)
     val locationHandler = locationHandler(location, handler)
     return addHandler(method, locationPath, locationHandler, permittedRoles)
 }
 
 @PublishedApi
-internal fun <T : Any> Javalin.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> Unit, permittedRoles: Set<Role>): Javalin {
+internal fun <T : Any, R> Javalin.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> R, permittedRoles: Set<Role>): Javalin {
     val locationPath = locationPath(location)
     return ws(locationPath, {
         val locationHandler = WsLocationHandler(location, it)
@@ -311,7 +311,7 @@ internal fun <T : Any> Javalin.location(location: KClass<T>, handler: (WsLocatio
 }
 
 @PublishedApi
-internal fun <T : Any> Javalin.location(pathPrefix: String, location: KClass<T>, handler: (WsLocationHandler<T>) -> Unit, permittedRoles: Set<Role>): Javalin {
+internal fun <T : Any, R> Javalin.location(pathPrefix: String, location: KClass<T>, handler: (WsLocationHandler<T>) -> R, permittedRoles: Set<Role>): Javalin {
     val locationPath = locationPath(location)
     return ws("$pathPrefix$locationPath", {
         val locationHandler = WsLocationHandler(location, it)
@@ -360,8 +360,12 @@ private fun <T : Any> locationPath(location: KClass<T>): String {
     return path
 }
 
-private fun <T : Any> locationHandler(location: KClass<T>, handler: T.(Context) -> Unit): Handler {
-    return Handler { ctx -> handler(ctx.hydrate(location), ctx) }
+private fun <T : Any, R> locationHandler(location: KClass<T>, handler: T.(Context) -> R): Handler {
+    return Handler { ctx ->
+        when (val response: R = handler(ctx.hydrate(location), ctx)) {
+            !is Unit -> ctx.result(response as Any)
+        }
+    }
 }
 
 private fun <T : Any> Any.hydrate(type: KClass<T>): T {
@@ -393,7 +397,10 @@ private fun <T : Any> Any.hydrate(type: KClass<T>): T {
                         DOUBLE_TYPE -> value.toDouble()
                         FLOAT_TYPE -> value.toFloat()
                         LONG_TYPE -> value.toLong()
-                        BOOLEAN_TYPE -> value.toBoolean()
+                        BOOLEAN_TYPE -> when {
+                            value.isEmpty() -> true
+                            else -> value.toBoolean()
+                        }
 
                         NULLABLE_BYTE_TYPE -> value.toByteOrNull()
                         NULLABLE_SHORT_TYPE -> value.toShortOrNull()
@@ -401,7 +408,10 @@ private fun <T : Any> Any.hydrate(type: KClass<T>): T {
                         NULLABLE_DOUBLE_TYPE -> value.toDoubleOrNull()
                         NULLABLE_FLOAT_TYPE -> value.toFloatOrNull()
                         NULLABLE_LONG_TYPE -> value.toLongOrNull()
-                        NULLABLE_BOOLEAN_TYPE -> value.toBoolean()
+                        NULLABLE_BOOLEAN_TYPE -> when {
+                            value.isEmpty() -> true
+                            else -> value.toBoolean()
+                        }
 
                         STRING_TYPE, NULLABLE_STRING_TYPE -> value
                         else -> throw IllegalArgumentException("Unsupported type. [${type.classifier}]")
