@@ -1,88 +1,79 @@
 package io.javalin.locations
 
 import io.javalin.Javalin
+import java.time.Duration
 
-@Location("/test")
-data class Test(val token: String? = null) {
-
-    @Location("/:name")
-    data class Edit(val name: String? = null)
-
-}
+private val SERVER_START_TIME_MS = System.currentTimeMillis()
 
 fun main() {
 
-    val app = Javalin.create()
+    Javalin.create().locations {
 
-    @Location("/ping")
-    data class Ping(val token: String? = null)
-
-    app.locations {
-        get<Ping> { context ->
-            val pong = buildString {
-                append("Pong")
-
-                when {
-                    token.isNullOrBlank() -> return@buildString
-                    else -> append(": $token")
-                }
-            }
-
-            context.result(pong)
+        path("/api/v1") {
+            configureAuthenticationAPI()
+            configureServiceAPI()
         }
 
-        post<Test.Edit> { ctx ->
-            ctx.status(200)
-        }
-
-        configureAuthenticationRouting()
-        configureUserRouting()
-
-    }
-
-    app.start(8080)
+    }.start(8080)
 
 }
 
-fun LocationBuilder.configureAuthenticationRouting(): LocationBuilder {
+fun LocationBuilder.configureServiceAPI() {
+    head<ServiceAPI.Status> { ctx -> ctx.status(200) }
+    get<ServiceAPI.Uptime, ServiceAPI.Uptime.Response> {
+        val uptimeMillis = System.currentTimeMillis() - SERVER_START_TIME_MS
 
-    //@PostBody // Hydrates data class by parsing the request body as JSON object.
-    @Location("/authenticate")
-    class Authenticate(val username: String? = null, val password: String? = null)
-
-    post<Authenticate> { context ->
-        println(context.formParamMap().entries.joinToString { "${it.key} : ${it.value.joinToString()}" })
-
-        when { //access to Authenticate class properties and methods
-            username.isNullOrEmpty() -> context.status(400).result("Invalid username.")
-            password.isNullOrEmpty() -> context.status(400).result("Invalid password.")
+        when {
+            raw -> ServiceAPI.Uptime.Response(uptimeMillis)
             else -> {
-                // TODO check authentication
+                val duration = Duration.ofMillis(uptimeMillis)
+                val uptime = "%02d:%02d:%02d.%03d".format(
+                    duration.toHours().rem(24),
+                    duration.toMinutes().rem(60),
+                    duration.seconds.rem(60),
+                    duration.nano.div(1000_000)
+                )
 
-                context.result("Authentication successful. ${username}:${password}")
+                ServiceAPI.Uptime.Response(uptime)
             }
         }
     }
-
-    return this
 }
 
-fun LocationBuilder.configureUserRouting(): LocationBuilder {
-
-    @Location("/user/:userId")
-    data class UserProfile(val userId: Int = -1)
-    data class UserProfileResponse(val userId: Int, val username: String)
-
-    get<UserProfile> { context ->
-        when (userId) {
-            -1 -> context.status(400).result("Invalid user.")
+fun LocationBuilder.configureAuthenticationAPI() {
+    post<AuthenticationAPI.Login> { ctx ->
+        when {
+            username.isNullOrBlank() -> ctx.json(AuthenticationAPI.Login.Response("Invalid username."))
+            password.isNullOrBlank() -> ctx.json(AuthenticationAPI.Login.Response("Invalid password."))
             else -> {
-                // TODO lookup user information
+                // TODO authentication
 
-                context.result(UserProfileResponse(userId, "testuser")) //respond with JSON object, could be ORM class, etc
+                ctx.json(AuthenticationAPI.Login.Response("Authentication successful."))
             }
         }
     }
+}
 
-    return this
+@Location("/service")
+sealed class ServiceAPI {
+
+    @Location("/status")
+    class Status
+
+    @Location("/uptime", [HydrationMethod.QUERY_PARAMETERS])
+    class Uptime(@QueryParameter val raw: Boolean = false) {
+        class Response(val uptime: Any)
+    }
+
+}
+
+@Location("/auth")
+sealed class AuthenticationAPI {
+
+    @PostBody
+    @Location("/login")
+    class Login(val username: String? = null, val password: String? = null) {
+        class Response(val message: String)
+    }
+
 }

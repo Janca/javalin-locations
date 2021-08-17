@@ -5,7 +5,6 @@ import io.javalin.core.security.Role
 import io.javalin.http.Context
 import io.javalin.http.Handler
 import io.javalin.http.HandlerType
-import io.javalin.plugin.json.JavalinJson
 import java.util.*
 import kotlin.reflect.KAnnotatedElement
 import kotlin.reflect.KClass
@@ -49,11 +48,6 @@ enum class HydrationMethod {
 inline fun Javalin.locations(init: LocationGroup.() -> Unit): Javalin {
     init(LocationGroup(this))
     return this
-}
-
-fun <T : Any> Context.result(payload: T): Context {
-    val json = JavalinJson.toJson(payload)
-    return result(json).contentType("application/json")
 }
 
 @PublishedApi
@@ -178,7 +172,7 @@ internal fun <T : Any> locationPath(location: KClass<T>): String {
 internal fun <T : Any, R> locationHandler(location: KClass<T>, handler: T.(Context) -> R): Handler {
     return Handler { ctx ->
         when (val response: R = handler(ctx.hydrate(location), ctx)) {
-            !is Unit -> ctx.result(response as Any)
+            !is Unit -> ctx.json(response as Any)
         }
     }
 }

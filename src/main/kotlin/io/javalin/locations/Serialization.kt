@@ -4,6 +4,7 @@ package io.javalin.locations
 
 import io.javalin.http.Context
 import io.javalin.websocket.WsContext
+import java.util.stream.Stream
 import kotlin.reflect.KClass
 import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.KProperty1
@@ -231,14 +232,43 @@ private fun <V : Any> List<*>.cast(type: KType): V? {
 
     return when {
         type.jvmErasure.isSubclassOf(List::class) -> casts.toList() as V
-        else -> casts.limit(1).findFirst().orElseThrow()
+        type.jvmErasure.java.isArray -> casts.castArray(type) as V
+        else -> casts.limit(1).findFirst().orElse(null)
+    }
+}
+
+private fun Stream<*>.castArray(type: KType): Any {
+    val values = toArray()
+    val length = values.size
+
+    fun kotlinArray(): Any {
+        return when (type) {
+            BYTE_ARRAY_TYPE -> ByteArray(length) { values[it] as Byte }
+            SHORT_ARRAY_TYPE -> ShortArray(length) { values[it] as Short }
+            INT_ARRAY_TYPE -> IntArray(length) { values[it] as Int }
+            DOUBLE_ARRAY_TYPE -> DoubleArray(length) { values[it] as Double }
+            FLOAT_ARRAY_TYPE -> FloatArray(length) { values[it] as Float }
+            LONG_ARRAY_TYPE -> LongArray(length) { values[it] as Long }
+            BOOLEAN_ARRAY_TYPE -> BooleanArray(length) { values[it] as Boolean }
+            else -> throw IllegalArgumentException("Unsupported array type. [${type.classifier}]")
+        }
+    }
+
+    val typeArguments = type.arguments
+    return when {
+        typeArguments.isNotEmpty() -> {
+            val arrayType = type.arguments.first().type!!.classifier as KClass<*>
+            val typedArray = java.lang.reflect.Array.newInstance(arrayType.java, length)
+            java.lang.reflect.Array.set(typedArray, 0, values)
+            typedArray
+        }
+
+        else -> kotlinArray()
     }
 }
 
 private fun String.castArray(type: KType): Any {
-    val typeArguments = type.arguments
-
-    fun String.kotlinArray(type: KType): Any {
+    fun String.kotlinArray(): Any {
         val arrayType = type.jvmErasure.java
         val castType = arrayType.componentType.kotlin.createType()
 
@@ -254,6 +284,7 @@ private fun String.castArray(type: KType): Any {
         }
     }
 
+    val typeArguments = type.arguments
     return when {
         typeArguments.isNotEmpty() -> {
             val arrayType = type.arguments.first().type!!.classifier as KClass<*>
@@ -262,6 +293,6 @@ private fun String.castArray(type: KType): Any {
             typedArray
         }
 
-        else -> this.kotlinArray(type)
+        else -> this.kotlinArray()
     }
 }
