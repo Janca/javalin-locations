@@ -174,7 +174,7 @@ private fun <T : Any> WsContext.createInstance(location: KClass<T>): T {
         }
 }
 
-fun <V : Any> setProperty(property: KProperty1<Any, V>, instance: Any, value: Any) {
+private fun <V : Any> setProperty(property: KProperty1<Any, V>, instance: Any, value: Any) {
     val type = property.returnType
     val hydrated: V = value.cast(type) ?: return
 
