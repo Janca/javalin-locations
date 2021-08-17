@@ -46,18 +46,20 @@ fun main() {
 
 fun LocationBuilder.configureAuthenticationRouting(): LocationBuilder {
 
-    @PostBody // Hydrates data class by parsing the request body as JSON object.
+    //@PostBody // Hydrates data class by parsing the request body as JSON object.
     @Location("/authenticate")
-    data class Authenticate(val username: String? = null, val password: String? = null)
+    class Authenticate(val username: String? = null, val password: String? = null)
 
     post<Authenticate> { context ->
+        println(context.formParamMap().entries.joinToString { "${it.key} : ${it.value.joinToString()}" })
+
         when { //access to Authenticate class properties and methods
-            username.isNullOrBlank() -> context.status(400).result("Invalid username.")
-            password.isNullOrBlank() -> context.status(400).result("Invalid password.")
+            username.isNullOrEmpty() -> context.status(400).result("Invalid username.")
+            password.isNullOrEmpty() -> context.status(400).result("Invalid password.")
             else -> {
                 // TODO check authentication
 
-                context.result("Authentication successful.")
+                context.result("Authentication successful. ${username}:${password}")
             }
         }
     }
