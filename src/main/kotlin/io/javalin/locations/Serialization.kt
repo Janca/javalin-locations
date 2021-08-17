@@ -3,6 +3,7 @@
 package io.javalin.locations
 
 import io.javalin.http.Context
+import io.javalin.plugin.json.JavalinJson
 import io.javalin.websocket.WsContext
 import java.util.stream.Stream
 import kotlin.reflect.KClass
@@ -152,7 +153,7 @@ fun <T : Any> Any.hydrate(location: KClass<T>): T {
 private fun <T : Any> Context.createInstance(location: KClass<T>): T {
     return when {
         location.hasAnnotation<PostBody>() -> try {
-            bodyAsClass(location.java)
+            JavalinJson.fromJson(body(), location.java)
         } catch (e: Exception) {
             location.createInstance()
         }
