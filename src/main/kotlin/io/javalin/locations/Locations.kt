@@ -177,6 +177,10 @@ internal fun <T : Any, R> locationHandler(location: KClass<T>, handler: T.(Conte
     }
 }
 
+internal val Location.isHydratingFormParameters: Boolean get() = allowedHydrationMethods.contains(HydrationMethod.POST_FORM_PARAMETERS)
+internal val Location.isHydratingQueryParameters: Boolean get() = allowedHydrationMethods.contains(HydrationMethod.QUERY_PARAMETERS)
+internal val Location.isHydratingUrlParameters: Boolean get() = allowedHydrationMethods.contains(HydrationMethod.URL_PARAMETERS)
+
 internal inline fun <reified T : Annotation> KAnnotatedElement.hasAnnotation(): Boolean = findAnnotation<T>() != null
 internal inline fun <reified T : Annotation> Class<*>.findAnnotation(): T? {
     return getDeclaredAnnotation(T::class.java)

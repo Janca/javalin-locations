@@ -64,14 +64,7 @@ open class WsContextAware {
 
 class WsLocationHandler<T : Any>(private val location: KClass<T>, private val handler: WsHandler) {
 
-    private var wsConnectHandler: WsConnectHandler<T>? = null
-    private var wsMessageHandler: WsMessageHandler<T>? = null
-    private var wsBinaryMessageHandler: WsBinaryMessageHandler<T>? = null
-    private var wsCloseHandler: WsCloseHandler<T>? = null
-    private var wsErrorHandler: WsErrorHandler<T>? = null
-
     fun onConnect(wsConnectHandler: WsConnectHandler<T>) {
-        this.wsConnectHandler = wsConnectHandler
         handler.onConnect {
             val value = it.hydrate(location)
             wsConnectHandler.invoke(value, it)
@@ -79,7 +72,6 @@ class WsLocationHandler<T : Any>(private val location: KClass<T>, private val ha
     }
 
     fun onMessage(wsMessageHandler: WsMessageHandler<T>) {
-        this.wsMessageHandler = wsMessageHandler
         handler.onMessage {
             val value = it.hydrate(location)
             wsMessageHandler.invoke(value, it)
@@ -87,7 +79,6 @@ class WsLocationHandler<T : Any>(private val location: KClass<T>, private val ha
     }
 
     fun onBinaryMessage(wsBinaryMessageHandler: WsBinaryMessageHandler<T>) {
-        this.wsBinaryMessageHandler = wsBinaryMessageHandler
         handler.onBinaryMessage {
             val value = it.hydrate(location)
             wsBinaryMessageHandler.invoke(value, it)
@@ -95,7 +86,6 @@ class WsLocationHandler<T : Any>(private val location: KClass<T>, private val ha
     }
 
     fun onClose(wsCloseHandler: WsCloseHandler<T>) {
-        this.wsCloseHandler = wsCloseHandler
         handler.onClose {
             val value = it.hydrate(location)
             wsCloseHandler.invoke(value, it)
@@ -103,7 +93,6 @@ class WsLocationHandler<T : Any>(private val location: KClass<T>, private val ha
     }
 
     fun onError(wsErrorHandler: WsErrorHandler<T>) {
-        this.wsErrorHandler = wsErrorHandler
         handler.onError {
             val value = it.hydrate(location)
             wsErrorHandler.invoke(value, it)

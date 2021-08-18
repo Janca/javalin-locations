@@ -1,15 +1,13 @@
 package io.javalin.locations
 
-import kotlin.reflect.full.declaredMemberProperties
-
 class A(val test: Array<String> = emptyArray(), val testC: IntArray = intArrayOf(), val testD: List<Int> = emptyList())
 
 fun main() {
 
-    val classAField = A::class.declaredMemberProperties.first()
+    /*val classAField = A::class.declaredMemberProperties.first()
     val classAFieldType = classAField.returnType
 
-/*    val test: String = "this is a test"
+    val test: String = "this is a test"
     val testB: Array<String>? = test.cast(classAFieldType)
     println(testB?.joinToString())
 
