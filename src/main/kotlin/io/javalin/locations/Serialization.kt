@@ -5,14 +5,16 @@ package io.javalin.locations
 import com.fasterxml.jackson.databind.SerializationFeature
 import io.javalin.http.Context
 import io.javalin.plugin.json.JavalinJackson
+import io.javalin.plugin.json.JavalinJson
 import io.javalin.websocket.WsContext
 import kotlin.reflect.KClass
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
 
-private val OBJECT_MAPPER = JavalinJackson.getObjectMapper().apply {
-    setConfig(serializationConfig.with(SerializationFeature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED))
-}
+private val OBJECT_MAPPER = JavalinJackson.getObjectMapper()
+    .copy().apply {
+        setConfig(serializationConfig.with(SerializationFeature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED))
+    }
 
 fun <T : Any> Any.hydrate(location: KClass<T>): T {
     if (this !is Context && this !is WsContext) {
@@ -107,7 +109,7 @@ fun <T : Any> Context.createInstance(hydrates: MutableMap<Any, Any?>, location: 
     }
 
     val json = OBJECT_MAPPER.writeValueAsString(hydrates)
-    val instance = OBJECT_MAPPER.readValue(json, location.java)
+    val instance = JavalinJson.fromJson(json, location.java)
 
     return instance.also {
         if (it is ContextAware) {
@@ -118,7 +120,7 @@ fun <T : Any> Context.createInstance(hydrates: MutableMap<Any, Any?>, location: 
 
 fun <T : Any> WsContext.createInstance(hydrates: MutableMap<Any, Any?>, location: KClass<T>): T {
     val json = OBJECT_MAPPER.writeValueAsString(hydrates)
-    return OBJECT_MAPPER.readValue(json, location.java).also {
+    return JavalinJson.fromJson(json, location.java).also {
         if (it is WsContextAware) {
             it.context(this)
         }
