@@ -45,37 +45,13 @@ enum class HydrationMethod {
 
 
 // PRIMARY ENTRY-POINT
-inline fun Javalin.locations(init: LocationGroup.() -> Unit): Javalin {
+fun Javalin.locations(init: LocationBuilder.() -> Unit): Javalin {
     init(LocationGroup(this))
     return this
 }
 
-@PublishedApi
-internal val EMPTY_ROLE_SET: Set<Role> = emptySet()
-
-@PublishedApi
-internal val HTTP_HANDLER_TYPES = HandlerType.values().filter { it.isHttpMethod() }.toTypedArray()
-
-
 interface LocationBuilder {
-    fun path(path: String, init: PathGroup.() -> Unit): LocationBuilder
-}
-
-class PathGroup internal constructor(internal val routeGroup: LocationGroup, path: String) : LocationBuilder {
-    internal val path = normalizePath(path)
-
-    override fun path(path: String, init: PathGroup.() -> Unit): LocationBuilder {
-        val routePath = this.path + normalizePath(path)
-        init(PathGroup(routeGroup, routePath))
-        return routeGroup
-    }
-}
-
-class LocationGroup @PublishedApi internal constructor(internal val javalin: Javalin) : LocationBuilder {
-    override fun path(path: String, init: PathGroup.() -> Unit): LocationBuilder {
-        init(PathGroup(this, path))
-        return this
-    }
+    fun path(path: String, init: LocationBuilder.() -> Unit): LocationBuilder
 }
 
 open class ContextAware {
@@ -84,6 +60,30 @@ open class ContextAware {
     protected val context: Context get() = _context
     internal fun context(context: Context) {
         this._context = context
+    }
+}
+
+@PublishedApi
+internal val EMPTY_ROLE_SET: Set<Role> = emptySet()
+
+
+@PublishedApi
+internal val HTTP_HANDLER_TYPES = HandlerType.values().filter { it.isHttpMethod() }.toTypedArray()
+
+internal class PathGroup constructor(internal val routeGroup: LocationGroup, path: String) : LocationBuilder {
+    internal val path = normalizePath(path)
+
+    override fun path(path: String, init: LocationBuilder.() -> Unit): LocationBuilder {
+        val routePath = this.path + normalizePath(path)
+        init(PathGroup(routeGroup, routePath))
+        return routeGroup
+    }
+}
+
+internal class LocationGroup constructor(internal val javalin: Javalin) : LocationBuilder {
+    override fun path(path: String, init: LocationBuilder.() -> Unit): LocationBuilder {
+        init(PathGroup(this, path))
+        return this
     }
 }
 
@@ -176,10 +176,6 @@ internal fun <T : Any, R> locationHandler(location: KClass<T>, handler: T.(Conte
         }
     }
 }
-
-internal val Location.isHydratingFormParameters: Boolean get() = allowedHydrationMethods.contains(HydrationMethod.POST_FORM_PARAMETERS)
-internal val Location.isHydratingQueryParameters: Boolean get() = allowedHydrationMethods.contains(HydrationMethod.QUERY_PARAMETERS)
-internal val Location.isHydratingUrlParameters: Boolean get() = allowedHydrationMethods.contains(HydrationMethod.URL_PARAMETERS)
 
 internal inline fun <reified T : Annotation> KAnnotatedElement.hasAnnotation(): Boolean = findAnnotation<T>() != null
 internal inline fun <reified T : Annotation> Class<*>.findAnnotation(): T? {

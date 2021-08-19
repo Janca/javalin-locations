@@ -25,10 +25,8 @@ inline fun <reified T : Any> LocationBuilder.trace(permittedRoles: Set<Role> = E
 inline fun <reified T : Any> LocationBuilder.connect(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationBuilder = location(T::class, HandlerType.CONNECT, handler, permittedRoles)
 inline fun <reified T : Any> LocationBuilder.options(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(Context) -> Unit): LocationBuilder = location(T::class, HandlerType.OPTIONS, handler, permittedRoles)
 
-
 inline fun <reified T : Any> Javalin.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): Javalin = handle(permittedRoles = permittedRoles, handler = handler, methods = *HTTP_HANDLER_TYPES)
-inline fun <reified T : Any> LocationGroup.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): LocationGroup = handle(permittedRoles = permittedRoles, handler = handler, methods = *HTTP_HANDLER_TYPES)
-inline fun <reified T : Any> PathGroup.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): PathGroup = handle(permittedRoles = permittedRoles, handler = handler, methods = *HTTP_HANDLER_TYPES)
+inline fun <reified T : Any> LocationBuilder.handle(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): LocationBuilder = handle(permittedRoles = permittedRoles, handler = handler, methods = *HTTP_HANDLER_TYPES)
 
 inline fun <reified T : Any> Javalin.handle(vararg methods: HandlerType, permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): Javalin {
     methods.forEach { httpMethod ->
@@ -40,7 +38,16 @@ inline fun <reified T : Any> Javalin.handle(vararg methods: HandlerType, permitt
     return this
 }
 
-inline fun <reified T : Any> LocationGroup.handle(vararg methods: HandlerType, permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): LocationGroup {
+inline fun <reified T : Any> LocationBuilder.handle(vararg methods: HandlerType, permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): LocationBuilder {
+    return when (this) {
+        is LocationGroup -> this.handle(permittedRoles = permittedRoles, handler = handler, methods = *methods)
+        is PathGroup -> this.handle(permittedRoles = permittedRoles, handler = handler, methods = *methods)
+        else -> throw IllegalArgumentException("")
+    }
+}
+
+@PublishedApi
+internal inline fun <reified T : Any> LocationGroup.handle(vararg methods: HandlerType, permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): LocationGroup {
     methods.forEach { httpMethod ->
         location(T::class, httpMethod, {
             handler(this, it, httpMethod)
@@ -50,8 +57,8 @@ inline fun <reified T : Any> LocationGroup.handle(vararg methods: HandlerType, p
     return this
 }
 
-
-inline fun <reified T : Any> PathGroup.handle(vararg methods: HandlerType, permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): PathGroup {
+@PublishedApi
+internal inline fun <reified T : Any> PathGroup.handle(vararg methods: HandlerType, permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: T.(ctx: Context, httpMethod: HandlerType) -> Unit): PathGroup {
     methods.forEach { httpMethod ->
         location(T::class, httpMethod, {
             handler(this, it, httpMethod)

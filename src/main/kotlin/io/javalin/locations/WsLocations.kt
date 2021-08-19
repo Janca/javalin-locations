@@ -20,39 +20,6 @@ typealias WsErrorHandler<T> = T.(WsErrorContext) -> Unit
 inline fun <reified T : Any> Javalin.ws(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: (WsLocationHandler<T>) -> Unit): Javalin = location(T::class, handler, permittedRoles)
 inline fun <reified T : Any> LocationBuilder.ws(permittedRoles: Set<Role> = EMPTY_ROLE_SET, noinline handler: (WsLocationHandler<T>) -> Unit): LocationBuilder = location(T::class, handler, permittedRoles)
 
-@PublishedApi
-internal fun <T : Any, R> LocationBuilder.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> R, permittedRoles: Set<Role>): LocationBuilder {
-    when (this) {
-        is LocationGroup -> this.location(location, handler, permittedRoles)
-        is PathGroup -> this.location(location, handler, permittedRoles)
-        else -> throw IllegalArgumentException()
-    }
-
-    return this
-}
-
-@PublishedApi
-internal fun <T : Any, R> PathGroup.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> R, permittedRoles: Set<Role>): PathGroup {
-    routeGroup.javalin.location(path, location, handler, permittedRoles)
-    return this
-}
-
-@PublishedApi
-internal fun <T : Any, R> LocationGroup.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> R, permittedRoles: Set<Role>): LocationGroup {
-    javalin.location(location, handler, permittedRoles)
-    return this
-}
-
-
-@PublishedApi
-internal fun <T : Any, R> Javalin.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> R, permittedRoles: Set<Role>): Javalin {
-    val locationPath = locationPath(location)
-    return ws(locationPath, {
-        val locationHandler = WsLocationHandler(location, it)
-        handler.invoke(locationHandler)
-    }, permittedRoles)
-}
-
 open class WsContextAware {
     private lateinit var _context: WsContext
 
@@ -62,7 +29,7 @@ open class WsContextAware {
     }
 }
 
-class WsLocationHandler<T : Any>(private val location: KClass<T>, private val handler: WsHandler) {
+class WsLocationHandler<T : Any> internal constructor(private val location: KClass<T>, private val handler: WsHandler) {
 
     fun onConnect(wsConnectHandler: WsConnectHandler<T>) {
         handler.onConnect {
@@ -99,4 +66,37 @@ class WsLocationHandler<T : Any>(private val location: KClass<T>, private val ha
         }
     }
 
+}
+
+@PublishedApi
+internal fun <T : Any, R> LocationBuilder.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> R, permittedRoles: Set<Role>): LocationBuilder {
+    when (this) {
+        is LocationGroup -> this.location(location, handler, permittedRoles)
+        is PathGroup -> this.location(location, handler, permittedRoles)
+        else -> throw IllegalArgumentException()
+    }
+
+    return this
+}
+
+
+@PublishedApi
+internal fun <T : Any, R> PathGroup.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> R, permittedRoles: Set<Role>): PathGroup {
+    routeGroup.javalin.location(path, location, handler, permittedRoles)
+    return this
+}
+
+@PublishedApi
+internal fun <T : Any, R> LocationGroup.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> R, permittedRoles: Set<Role>): LocationGroup {
+    javalin.location(location, handler, permittedRoles)
+    return this
+}
+
+@PublishedApi
+internal fun <T : Any, R> Javalin.location(location: KClass<T>, handler: (WsLocationHandler<T>) -> R, permittedRoles: Set<Role>): Javalin {
+    val locationPath = locationPath(location)
+    return ws(locationPath, {
+        val locationHandler = WsLocationHandler(location, it)
+        handler.invoke(locationHandler)
+    }, permittedRoles)
 }

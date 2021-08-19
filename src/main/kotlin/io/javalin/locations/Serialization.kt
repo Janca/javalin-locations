@@ -21,6 +21,11 @@ fun <T : Any> Any.hydrate(location: KClass<T>): T {
         throw IllegalStateException("Must call hydrate on Context or WsContext instance.")
     }
 
+    val objectInst = location.objectInstance
+    if (objectInst != null) {
+        return objectInst
+    }
+
     val locationAnnotation = location.findAnnotation<Location>()
         ?: throw IllegalArgumentException("Parameter 'location' must be a class annotated with the Location annotation.")
 
@@ -126,3 +131,7 @@ fun <T : Any> WsContext.createInstance(hydrates: MutableMap<Any, Any?>, location
         }
     }
 }
+
+internal val Location.isHydratingFormParameters: Boolean get() = allowedHydrationMethods.contains(HydrationMethod.POST_FORM_PARAMETERS)
+internal val Location.isHydratingQueryParameters: Boolean get() = allowedHydrationMethods.contains(HydrationMethod.QUERY_PARAMETERS)
+internal val Location.isHydratingUrlParameters: Boolean get() = allowedHydrationMethods.contains(HydrationMethod.URL_PARAMETERS)
