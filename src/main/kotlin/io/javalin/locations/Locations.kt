@@ -13,7 +13,7 @@ import kotlin.reflect.full.findAnnotation
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class Location(
-    val path: String,
+    val path: String = "",
     val allowedHydrationMethods: Array<out HydrationMethod> = [
         HydrationMethod.POST_FORM_PARAMETERS,
         HydrationMethod.QUERY_PARAMETERS,
@@ -70,9 +70,7 @@ internal val EMPTY_ROLE_SET: Set<Role> = emptySet()
 @PublishedApi
 internal val HTTP_HANDLER_TYPES = HandlerType.values().filter { it.isHttpMethod() }.toTypedArray()
 
-internal class PathGroup constructor(internal val routeGroup: LocationGroup, path: String) : LocationBuilder {
-    internal val path = normalizePath(path)
-
+internal class PathGroup constructor(internal val routeGroup: LocationGroup, internal val path: String) : LocationBuilder {
     override fun path(path: String, init: LocationBuilder.() -> Unit): LocationBuilder {
         val routePath = this.path + normalizePath(path)
         init(PathGroup(routeGroup, routePath))
@@ -130,21 +128,25 @@ internal fun <T : Any, R> Javalin.location(pathPrefix: String, location: KClass<
 
 
 @PublishedApi
-internal fun normalizePath(path: String): String {
-    val trimmed = path.trim()
+internal fun normalizePath(path: String?): String? {
+    val trimmed = path?.trim()
     return when {
+        trimmed.isNullOrBlank() -> null
         trimmed.startsWith('/') -> trimmed
         else -> "/$trimmed"
     }
 }
 
 internal fun <T : Any> locationPath(location: KClass<T>): String {
-    val path = buildString {
+    val locationAnnotation = location.findAnnotation<Location>()
+        ?: throw IllegalArgumentException("Location '${location.qualifiedName}' is missing required annotation 'Location'.")
+
+    return buildString {
         var enclosingClass: Class<*>? = null
 
         val parentPathLocations = LinkedList<Location>()
         do {
-            val next = location.java.enclosingClass
+            val next = location.java.enclosingClass ?: break
             if (enclosingClass == next) {
                 break
             }
@@ -154,19 +156,12 @@ internal fun <T : Any> locationPath(location: KClass<T>): String {
             parentPathLocations.addFirst(enclosingAnnotation)
         } while (true)
 
-        parentPathLocations.forEach {
-            val path = normalizePath(it.path)
-            append(path)
-        }
-
-        val locationAnnotation = location.findAnnotation<Location>()
-            ?: throw IllegalArgumentException("Location '${location.qualifiedName}' is missing annotation 'Location'.")
-
-        val locationPath = normalizePath(locationAnnotation.path)
-        append(locationPath)
-    }
-
-    return path
+        parentPathLocations.forEach { normalizePath(it.path)?.let { path -> append(path) } }
+        append(locationAnnotation.path)
+    }.takeIf { it.isNotBlank() }
+        ?: throw IllegalArgumentException(
+            "Location '${location.qualifiedName}' cannot have empty path; specify path on '${location.qualifiedName}' or define non-empty path on parent if nested."
+        )
 }
 
 internal fun <T : Any, R> locationHandler(location: KClass<T>, handler: T.(Context) -> R): Handler {

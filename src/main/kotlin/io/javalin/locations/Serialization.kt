@@ -13,6 +13,7 @@ import kotlin.reflect.full.findAnnotation
 
 private val OBJECT_MAPPER = JavalinJackson.getObjectMapper()
     .copy().apply {
+        propertyNamingStrategy = null
         setConfig(serializationConfig.with(SerializationFeature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED))
     }
 
