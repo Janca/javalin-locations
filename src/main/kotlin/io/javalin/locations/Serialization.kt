@@ -8,6 +8,7 @@ import io.javalin.plugin.json.JavalinJackson
 import io.javalin.plugin.json.JavalinJson
 import io.javalin.websocket.WsContext
 import kotlin.reflect.KClass
+import kotlin.reflect.full.createType
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
 
@@ -17,7 +18,10 @@ private val OBJECT_MAPPER = JavalinJackson.getObjectMapper()
         setConfig(serializationConfig.with(SerializationFeature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED))
     }
 
-fun <T : Any> Any.hydrate(location: KClass<T>): T {
+private val BOOLEAN_TYPE = Boolean::class.createType(nullable = false)
+private val BOOLEAN_NULLABLE_TYPE = Boolean::class.createType(nullable = true)
+
+internal fun <T : Any> Any.hydrate(location: KClass<T>): T {
     if (this !is Context && this !is WsContext) {
         throw IllegalStateException("Must call hydrate on Context or WsContext instance.")
     }
@@ -62,7 +66,14 @@ fun <T : Any> Any.hydrate(location: KClass<T>): T {
         property.findAnnotation<QueryParameter>()?.let { annot ->
             val targetQueryKey = annot.name.takeUnless { it.isBlank() } ?: name
             queryParameters[targetQueryKey]?.let {
-                hydrates[name] = it
+                when {
+                    (it.isEmpty() || it.firstOrNull().isNullOrBlank())
+                            && (property.returnType == BOOLEAN_TYPE || property.returnType == BOOLEAN_NULLABLE_TYPE) -> {
+                        hydrates[name] = true
+                    }
+
+                    else -> hydrates[name] = it
+                }
             }
         }
 

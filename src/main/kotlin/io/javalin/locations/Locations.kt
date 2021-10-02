@@ -142,11 +142,11 @@ internal fun <T : Any> locationPath(location: KClass<T>): String {
         ?: throw IllegalArgumentException("Location '${location.qualifiedName}' is missing required annotation 'Location'.")
 
     return buildString {
-        var enclosingClass: Class<*>? = null
+        var enclosingClass: Class<*>? = location.java
 
         val parentPathLocations = LinkedList<Location>()
         do {
-            val next = location.java.enclosingClass ?: break
+            val next = enclosingClass?.enclosingClass ?: break
             if (enclosingClass == next) {
                 break
             }
@@ -164,11 +164,35 @@ internal fun <T : Any> locationPath(location: KClass<T>): String {
         )
 }
 
-internal fun <T : Any, R> locationHandler(location: KClass<T>, handler: T.(Context) -> R): Handler {
+typealias LocationHandler<T, R> = T.(Context) -> R
+
+interface LocationHandlerFactory {
+    fun create(handler: Handler): Handler
+}
+
+
+internal var wrapperFactory: LocationHandlerFactory? = null
+fun Javalin.locationHandler(wrapper: (Handler) -> Handler) {
+    wrapperFactory = object : LocationHandlerFactory {
+        override fun create(handler: Handler): Handler {
+            return wrapper.invoke(handler)
+        }
+    }
+}
+
+internal fun <T : Any, R> createHandler(location: KClass<T>, handler: LocationHandler<T, R>): Handler {
     return Handler { ctx ->
         when (val response: R = handler(ctx.hydrate(location), ctx)) {
             !is Unit -> ctx.json(response as Any)
         }
+    }
+}
+
+internal fun <T : Any, R> locationHandler(location: KClass<T>, handler: LocationHandler<T, R>): Handler {
+    val defaultHandler = createHandler(location, handler)
+    return when (val wrapperFactory = wrapperFactory) {
+        null -> defaultHandler
+        else -> wrapperFactory.create(defaultHandler)
     }
 }
 

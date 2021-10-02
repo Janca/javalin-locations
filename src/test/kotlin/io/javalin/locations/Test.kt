@@ -8,10 +8,10 @@ private val SERVER_START_TIME_MS = System.currentTimeMillis()
 fun main() {
 
     Javalin.create().locations {
-
         path("/api/v1") {
             configureAuthenticationAPI()
             configureServiceAPI()
+            configureSettingsAPI()
         }
 
     }.start(8080)
@@ -54,6 +54,12 @@ fun LocationBuilder.configureAuthenticationAPI() {
     }
 }
 
+fun LocationBuilder.configureSettingsAPI() {
+    get<Settings.User.Theme> {
+        it.json("You've reach user theme settings")
+    }
+}
+
 @Location("/service")
 sealed class ServiceAPI {
 
@@ -74,6 +80,20 @@ sealed class AuthenticationAPI {
     @Location("/login")
     class Login(val username: String? = null, val password: String? = null) {
         class Response(val message: String)
+    }
+
+}
+
+
+@Location("/settings")
+object Settings {
+
+    @Location("/user")
+    object User {
+
+        @Location("/theme")
+        data class Theme(val id: Int = -1)
+
     }
 
 }
