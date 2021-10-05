@@ -105,23 +105,25 @@ fun ILocationBuilder.configureServiceAPI() {
 }
 
 fun ILocationBuilder.configureAuthenticationAPI() {
-    jsonMapper {
-        // You can define json mappers per path group,
-        // or globally on the Javalin#location(ILocationBuilder.()->Unit) entry point
-        // if none are set, defaults to Javalin.jsonMapper()
+    pathGroup {
+        jsonMapper {
+            // You can define json mappers per path group,
+            // or globally on the Javalin#location(ILocationBuilder.()->Unit) entry point
+            // if none are set, defaults to Javalin.jsonMapper()
 
-        JavalinJackson()
-    }
+            JavalinJackson()
+        }
 
-    post<AuthenticationAPI.Login> { ctx ->
-        when {
-            username.isNullOrBlank() -> ctx.json(AuthenticationAPI.Login.Response("Invalid username."))
-            password.isNullOrBlank() -> ctx.json(AuthenticationAPI.Login.Response("Invalid password."))
-            else -> {
-                // TODO authentication
+        post<AuthenticationAPI.Login> { ctx ->
+            when {
+                username.isNullOrBlank() -> ctx.json(AuthenticationAPI.Login.Response("Invalid username."))
+                password.isNullOrBlank() -> ctx.json(AuthenticationAPI.Login.Response("Invalid password."))
+                else -> {
+                    // TODO authentication
 
-                // use Context#payload(Any) to use the JsonMapper assigned to the location
-                ctx.payload(AuthenticationAPI.Login.Response("Authentication successful."))
+                    // use Context#payload(Any) to use the JsonMapper assigned to the location
+                    ctx.payload(AuthenticationAPI.Login.Response("Authentication successful."))
+                }
             }
         }
     }
