@@ -1,202 +1,172 @@
 package io.javalin.locations
 
 import io.javalin.Javalin
-import io.javalin.core.security.Role
+import io.javalin.core.security.RouteRole
+import io.javalin.http.ContentType
 import io.javalin.http.Context
 import io.javalin.http.Handler
 import io.javalin.http.HandlerType
+import io.javalin.plugin.json.JsonMapper
+import io.javalin.plugin.json.jsonMapper
 import java.util.*
-import kotlin.reflect.KAnnotatedElement
 import kotlin.reflect.KClass
 import kotlin.reflect.full.findAnnotation
 
-@Target(AnnotationTarget.CLASS)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Location(
-    val path: String = "",
-    val allowedHydrationMethods: Array<out HydrationMethod> = [
-        HydrationMethod.POST_FORM_PARAMETERS,
-        HydrationMethod.QUERY_PARAMETERS,
-        HydrationMethod.URL_PARAMETERS
-    ]
-)
+typealias ILocationInit = ILocationBuilder.() -> Unit
+typealias ILocationHandler<T, R> = T.(Context) -> R
+typealias ILocationHandlerFactory = (parent: Handler) -> Handler
 
-@Target(AnnotationTarget.PROPERTY)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class FormParameter(val name: String = "")
+interface ILocationBuilder {
+    fun handler(handler: ILocationHandlerFactory)
 
-@Target(AnnotationTarget.CLASS)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class PostBody
+    fun jsonMapper(mapper: JsonMapper)
+    fun jsonMapper(init: () -> JsonMapper)
 
-@Target(AnnotationTarget.PROPERTY)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class QueryParameter(val name: String = "")
+    fun jsonMapper(): JsonMapper
 
-@Target(AnnotationTarget.PROPERTY)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class UrlParameter(val name: String = "")
+    fun Context.payload(o: Any)
+    fun Context.stream(o: Any)
 
-enum class HydrationMethod {
-    POST_FORM_PARAMETERS,
-    QUERY_PARAMETERS,
-    URL_PARAMETERS
+    fun path(fragment: String, init: ILocationInit)
 }
 
-
-// PRIMARY ENTRY-POINT
-fun Javalin.locations(init: LocationBuilder.() -> Unit): Javalin {
-    init(LocationGroup(this))
-    return this
+internal interface IExtendedLocationBuilder {
+    val javalin: Javalin
+    val jsonMapper: JsonMapper
+    val handlerFactory: ILocationHandlerFactory
 }
 
-interface LocationBuilder {
-    fun path(path: String, init: LocationBuilder.() -> Unit): LocationBuilder
-}
+internal class LocationBuilder(
+    override val javalin: Javalin,
+    internal val path: String,
+    parent: LocationBuilder? = null
+) : ILocationBuilder, IExtendedLocationBuilder {
+    override var handlerFactory: ILocationHandlerFactory = parent?.handlerFactory ?: { it }
 
-open class ContextAware {
-    private lateinit var _context: Context
+    override var jsonMapper: JsonMapper = parent?.jsonMapper ?: javalin.jsonMapper()
 
-    protected val context: Context get() = _context
-    internal fun context(context: Context) {
-        this._context = context
-    }
-}
-
-@PublishedApi
-internal val EMPTY_ROLE_SET: Set<Role> = emptySet()
-
-
-@PublishedApi
-internal val HTTP_HANDLER_TYPES = HandlerType.values().filter { it.isHttpMethod() }.toTypedArray()
-
-internal class PathGroup constructor(internal val routeGroup: LocationGroup, internal val path: String) : LocationBuilder {
-    override fun path(path: String, init: LocationBuilder.() -> Unit): LocationBuilder {
-        val routePath = this.path + normalizePath(path)
-        init(PathGroup(routeGroup, routePath))
-        return routeGroup
-    }
-}
-
-internal class LocationGroup constructor(internal val javalin: Javalin) : LocationBuilder {
-    override fun path(path: String, init: LocationBuilder.() -> Unit): LocationBuilder {
-        init(PathGroup(this, path))
-        return this
-    }
-}
-
-@PublishedApi
-internal fun <T : Any, R> LocationBuilder.location(location: KClass<T>, method: HandlerType, handler: T.(Context) -> R, permittedRoles: Set<Role>): LocationBuilder {
-    when (this) {
-        is LocationGroup -> this.location(location, method, handler, permittedRoles)
-        is PathGroup -> this.location(location, method, handler, permittedRoles)
-        else -> throw IllegalArgumentException()
+    override fun handler(handler: ILocationHandlerFactory) {
+        this.handlerFactory = handler
     }
 
-    return this
-}
-
-@PublishedApi
-internal fun <T : Any, R> PathGroup.location(location: KClass<T>, method: HandlerType, handler: T.(Context) -> R, permittedRoles: Set<Role>): PathGroup {
-    val locationPath = locationPath(location)
-    val locationHandler = locationHandler(location, handler)
-    routeGroup.javalin.addHandler(method, "$path$locationPath", locationHandler, permittedRoles)
-    return this
-}
-
-@PublishedApi
-internal fun <T : Any, R> LocationGroup.location(location: KClass<T>, method: HandlerType, handler: T.(Context) -> R, permittedRoles: Set<Role>): LocationGroup {
-    javalin.location(location, method, handler, permittedRoles)
-    return this
-}
-
-@PublishedApi
-internal fun <T : Any, R> Javalin.location(location: KClass<T>, method: HandlerType, handler: T.(Context) -> R, permittedRoles: Set<Role>): Javalin {
-    val locationPath = locationPath(location)
-    val locationHandler = locationHandler(location, handler)
-    return addHandler(method, locationPath, locationHandler, permittedRoles)
-}
-
-@PublishedApi
-internal fun <T : Any, R> Javalin.location(pathPrefix: String, location: KClass<T>, handler: (WsLocationHandler<T>) -> R, permittedRoles: Set<Role>): Javalin {
-    val locationPath = locationPath(location)
-    return ws("$pathPrefix$locationPath", {
-        val locationHandler = WsLocationHandler(location, it)
-        handler.invoke(locationHandler)
-    }, permittedRoles)
-}
-
-
-@PublishedApi
-internal fun normalizePath(path: String?): String? {
-    val trimmed = path?.trim()
-    return when {
-        trimmed.isNullOrBlank() -> null
-        trimmed.startsWith('/') -> trimmed
-        else -> "/$trimmed"
+    override fun jsonMapper(mapper: JsonMapper) {
+        this.jsonMapper = mapper
     }
-}
 
-internal fun <T : Any> locationPath(location: KClass<T>): String {
-    val locationAnnotation = location.findAnnotation<Location>()
-        ?: throw IllegalArgumentException("Location '${location.qualifiedName}' is missing required annotation 'Location'.")
+    override fun jsonMapper(init: () -> JsonMapper) {
+        this.jsonMapper = init.invoke()
+    }
 
-    return buildString {
-        var enclosingClass: Class<*>? = location.java
+    override fun jsonMapper(): JsonMapper = jsonMapper
 
-        val parentPathLocations = LinkedList<Location>()
-        do {
-            val next = enclosingClass?.enclosingClass ?: break
-            if (enclosingClass == next) {
-                break
+    override fun path(fragment: String, init: ILocationInit) {
+        val locationPath = normalize(path, fragment)
+        val locationBuilder = LocationBuilder(javalin, locationPath, this)
+        init.invoke(locationBuilder)
+    }
+
+    override fun Context.payload(o: Any) {
+        val json = jsonMapper().toJsonString(o)
+        result(json).contentType("application/json")
+    }
+
+    override fun Context.stream(o: Any) {
+        val stream = jsonMapper().toJsonStream(o)
+        result(stream).contentType(ContentType.APPLICATION_JSON)
+    }
+
+    internal companion object {
+
+        fun <T : Any> locationAnnotation(location: KClass<T>): Location? {
+            return location.findAnnotation()
+        }
+
+        fun <T : Any> locationAnnotation(location: Class<T>): Location? {
+            return location.getDeclaredAnnotation(Location::class.java)
+        }
+
+        fun <T : Any> locationPath(location: KClass<T>): String {
+            val locationAnnotation = location.findAnnotation<Location>()
+                ?: throw IllegalArgumentException("Location '${location.qualifiedName}' is missing required annotation 'Location'.")
+
+            return buildString {
+                var enclosingClass: Class<*>? = location.java
+
+                val parentPathLocations = LinkedList<Location>()
+                do {
+                    val next = enclosingClass?.enclosingClass ?: break
+                    if (enclosingClass == next) {
+                        break
+                    }
+
+                    enclosingClass = next
+                    val enclosingAnnotation = locationAnnotation(next) ?: break
+                    parentPathLocations.addFirst(enclosingAnnotation)
+                } while (true)
+
+                val parentPaths = parentPathLocations.map { it.path }
+                    .toTypedArray()
+
+                append(normalize(*parentPaths))
+                append(locationAnnotation.path)
+            }.takeIf { it.isNotBlank() }
+                ?: throw IllegalArgumentException(
+                    "Location '${location.qualifiedName}' cannot have empty path; specify path on '${location.qualifiedName}' or define non-empty path on parent if nested."
+                )
+        }
+
+        fun normalize(vararg fragment: String): String {
+            return fragment.joinToString("") {
+                when {
+                    it.isBlank() -> ""
+                    it.startsWith("/") -> it
+                    else -> "/$it"
+                }
             }
-
-            enclosingClass = next
-            val enclosingAnnotation = enclosingClass.findAnnotation<Location>() ?: break
-            parentPathLocations.addFirst(enclosingAnnotation)
-        } while (true)
-
-        parentPathLocations.forEach { normalizePath(it.path)?.let { path -> append(path) } }
-        append(locationAnnotation.path)
-    }.takeIf { it.isNotBlank() }
-        ?: throw IllegalArgumentException(
-            "Location '${location.qualifiedName}' cannot have empty path; specify path on '${location.qualifiedName}' or define non-empty path on parent if nested."
-        )
-}
-
-typealias LocationHandler<T, R> = T.(Context) -> R
-
-interface LocationHandlerFactory {
-    fun create(handler: Handler): Handler
-}
-
-
-internal var wrapperFactory: LocationHandlerFactory? = null
-fun Javalin.locationHandler(wrapper: (Handler) -> Handler) {
-    wrapperFactory = object : LocationHandlerFactory {
-        override fun create(handler: Handler): Handler {
-            return wrapper.invoke(handler)
         }
     }
 }
 
-internal fun <T : Any, R> createHandler(location: KClass<T>, handler: LocationHandler<T, R>): Handler {
-    return Handler { ctx ->
-        when (val response: R = handler(ctx.hydrate(location), ctx)) {
-            !is Unit -> ctx.json(response as Any)
+@PublishedApi
+internal fun <T : Any, R : Any> ILocationBuilder.handle(
+    location: KClass<T>,
+    method: HandlerType,
+    roles: Array<out RouteRole>,
+    handler: ILocationHandler<T, R>
+): ILocationBuilder {
+    return location(this, location, method, roles, handler)
+}
+
+internal fun <T : Any, R : Any> location(
+    builder: ILocationBuilder,
+    location: KClass<T>,
+    method: HandlerType,
+    roles: Array<out RouteRole>,
+    handler: ILocationHandler<T, R>
+): ILocationBuilder {
+    val extendedBuilder = builder as LocationBuilder
+
+    val builderPath = extendedBuilder.path
+    val locationPath = LocationBuilder.normalize(
+        builderPath,
+        LocationBuilder.locationPath(location)
+    )
+
+    val javalin = extendedBuilder.javalin
+
+    val defaultHandler = Handler { ctx ->
+        val locationInst = ctx.hydrate(location, extendedBuilder)
+        when (val response: R = handler.invoke(locationInst, ctx)) {
+            !is Unit -> {
+                val json = extendedBuilder.jsonMapper().toJsonString(response)
+                ctx.result(json).contentType(ContentType.APPLICATION_JSON)
+            }
         }
     }
+
+    val locationHandler = builder.handlerFactory.invoke(defaultHandler)
+    javalin.addHandler(method, locationPath, locationHandler, *roles)
+
+    return builder
 }
 
-internal fun <T : Any, R> locationHandler(location: KClass<T>, handler: LocationHandler<T, R>): Handler {
-    val defaultHandler = createHandler(location, handler)
-    return when (val wrapperFactory = wrapperFactory) {
-        null -> defaultHandler
-        else -> wrapperFactory.create(defaultHandler)
-    }
-}
-
-internal inline fun <reified T : Annotation> KAnnotatedElement.hasAnnotation(): Boolean = findAnnotation<T>() != null
-internal inline fun <reified T : Annotation> Class<*>.findAnnotation(): T? {
-    return getDeclaredAnnotation(T::class.java)
-}

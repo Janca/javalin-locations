@@ -1,6 +1,7 @@
 package io.javalin.locations
 
 import io.javalin.Javalin
+import io.javalin.plugin.json.JavalinJackson
 import java.time.Duration
 
 private val SERVER_START_TIME_MS = System.currentTimeMillis()
@@ -11,14 +12,16 @@ fun main() {
         path("/api/v1") {
             configureAuthenticationAPI()
             configureServiceAPI()
-            configureSettingsAPI()
         }
 
+        get<ArraySerialization.TestA> {
+            it.payload(ids)
+        }
     }.start(8080)
 
 }
 
-fun LocationBuilder.configureServiceAPI() {
+fun ILocationBuilder.configureServiceAPI() {
     head<ServiceAPI.Status> { ctx -> ctx.status(200) }
     get<ServiceAPI.Uptime, ServiceAPI.Uptime.Response> {
         val uptimeMillis = System.currentTimeMillis() - SERVER_START_TIME_MS
@@ -40,7 +43,15 @@ fun LocationBuilder.configureServiceAPI() {
     }
 }
 
-fun LocationBuilder.configureAuthenticationAPI() {
+fun ILocationBuilder.configureAuthenticationAPI() {
+    jsonMapper {
+        // You can define json mappers per path group,
+        // or globally on the Javalin#location(ILocationBuilder.()->Unit) entry point
+        // if none are set, defaults to Javalin.jsonMapper()
+
+        JavalinJackson()
+    }
+
     post<AuthenticationAPI.Login> { ctx ->
         when {
             username.isNullOrBlank() -> ctx.json(AuthenticationAPI.Login.Response("Invalid username."))
@@ -48,52 +59,41 @@ fun LocationBuilder.configureAuthenticationAPI() {
             else -> {
                 // TODO authentication
 
-                ctx.json(AuthenticationAPI.Login.Response("Authentication successful."))
+                // use Context#payload(Any) to use the JsonMapper assigned to the location
+                ctx.payload(AuthenticationAPI.Login.Response("Authentication successful."))
             }
         }
     }
 }
 
-fun LocationBuilder.configureSettingsAPI() {
-    get<Settings.User.Theme> {
-        it.json("You've reach user theme settings")
-    }
-}
-
 @Location("/service")
-sealed class ServiceAPI {
+object ServiceAPI {
 
     @Location("/status")
-    class Status
+    object Status
 
-    @Location("/uptime", [HydrationMethod.QUERY_PARAMETERS])
+    @Location("/uptime")
     class Uptime(@QueryParameter val raw: Boolean = false) {
         class Response(val uptime: Any)
     }
 
 }
 
+@Location("/arrays")
+object ArraySerialization {
+
+    @Location("/testa")
+    class TestA(val ids: IntArray = intArrayOf())
+
+}
+
 @Location("/auth")
-sealed class AuthenticationAPI {
+object AuthenticationAPI {
 
     @PostBody
     @Location("/login")
     class Login(val username: String? = null, val password: String? = null) {
         class Response(val message: String)
-    }
-
-}
-
-
-@Location("/settings")
-object Settings {
-
-    @Location("/user")
-    object User {
-
-        @Location("/theme")
-        data class Theme(val id: Int = -1)
-
     }
 
 }
