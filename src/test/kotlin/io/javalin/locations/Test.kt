@@ -6,15 +6,6 @@ import java.time.Duration
 
 private val SERVER_START_TIME_MS = System.currentTimeMillis()
 
-
-@Location("/users")
-object Users {
-
-    @Location("/{id}")
-    data class Single(val id: Int = -1)
-
-}
-
 fun main() {
 
     Javalin.create()
@@ -87,7 +78,6 @@ object ServiceAPI {
     class Uptime(@QueryParameter val raw: Boolean = false) {
         class Response(val uptime: Any)
     }
-
 }
 
 @Location("/auth")

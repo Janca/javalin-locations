@@ -15,7 +15,46 @@
 
 *Currently the Javalin Locations library is not on Maven Central, please build and install locally.*
 
-### Example usage:
+### Basics
+
+#### Entry-Points
+
+The main entry-point for the `javalin-locations` library is the `Javalin.locations(ILocationInit)`
+or `Javalin.path(String, ILocationInit)` extension methods. From within here you will be able to use the common HTTP
+methods as route handlers, such as `get` and `post` and others.
+
+```kotlin
+javalin.locations {
+    // Routing here
+}
+```
+
+#### HTTP method handlers
+
+When using `javalin-locations` route handlers, you must define a class type that will be used for generating the
+route's path and will be hydrated by the incoming request and passed to the handler as `this`. The defined class must
+also be annotated with `@Location`.
+
+```kotlin
+@Location("/some/test/route/{param1}")
+class TestRoute(val param1: String? = null)
+
+javalin.locations {
+    get<TestRoute> { ctx ->
+        when {
+            param1.isNullOrBlank() -> { // we have access to all the declared properties of TestRoute, currently scoped as `this`
+                ctx.status(400).result("Invalid parameter")
+            }
+            
+            else -> {
+                // TODO something
+            }
+        }
+    }
+}
+```
+
+### Extended usage:
 
 #### Sample Application
 
@@ -87,6 +126,16 @@ fun ILocationBuilder.configureAuthenticationAPI() {
         }
     }
 }
+
+/*
+ * Nested routes automatically prefix their enclosing classes, for example
+ * the routes below would become:
+ *    
+ *    /service
+ *    /service/status
+ *    /sevice/uptime
+ * 
+ */
 
 @Location("/service")
 object ServiceAPI {
@@ -166,6 +215,26 @@ Javalin.create()
                     }
                 }
             }
+        }
+    }.start()
+```
+
+#### Handler's return value used as payload
+
+```kotlin
+class SampleRequest {
+    val requestStartTime = System.currentTimeMillis()
+
+    class SampleResponse(requestStartTime: Long) {
+        val requestTimeMs = System.currentTimeMillis() - requestStartTime
+    }
+}
+
+Javalin.create()
+    .locations {
+        get<SampleRequest, SampleRequest.SampleResponse> {
+            Thread.sleep(1000)
+            SampleResponse(requestStartTime)
         }
     }.start()
 ```
