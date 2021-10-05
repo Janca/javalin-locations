@@ -223,8 +223,6 @@ internal fun <T : Any, R : Any> location(
         LocationBuilder.locationPath(location)
     )
 
-    println("builderPath: $builderPath; locationPath: $locationPath")
-
     val javalin = extendedBuilder.javalin
 
     val defaultHandler = Handler { ctx ->
