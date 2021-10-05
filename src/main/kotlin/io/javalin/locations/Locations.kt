@@ -13,9 +13,43 @@ import kotlin.reflect.KClass
 import kotlin.reflect.full.findAnnotation
 
 typealias ILocationInit = ILocationBuilder.() -> Unit
-typealias ILocationHandler<T, R> = T.(Context) -> R
-typealias ILocationErrorHandler = (Throwable, Context) -> Unit
+typealias ILocationHandler<T> = ILocationExtendedHandler<T, Unit>
+typealias ILocationMethodHandler<T> = ILocationExtendedMethodHandler<T, Unit>
+typealias ILocationExtendedHandler<T, R> = T.(ctx: Context) -> R
+typealias ILocationExtendedMethodHandler<T, R> = T.(method: HandlerType, ctx: Context) -> R
+typealias ILocationErrorHandler = (exception: Throwable, ctx: Context) -> Unit
 typealias ILocationHandlerFactory = (parent: Handler) -> Handler
+
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class Location(val path: String, val eagerHydration: Boolean = true)
+
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class PostBody
+
+@Target(AnnotationTarget.PROPERTY)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class PostParameter(val name: String = "")
+
+@Target(AnnotationTarget.PROPERTY)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class FormParameter(val name: String = "")
+
+@Target(AnnotationTarget.PROPERTY)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class PathParameter(val name: String = "")
+
+@Target(AnnotationTarget.PROPERTY)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class QueryParameter(val name: String = "")
+
+open class ContextAwareLocation {
+
+    lateinit var context: Context
+        internal set
+
+}
 
 interface ILocationBuilder {
     fun handler(handler: ILocationHandlerFactory)
@@ -40,6 +74,7 @@ internal interface IExtendedLocationBuilder {
     val errorHandler: ILocationErrorHandler?
 }
 
+@PublishedApi
 internal class LocationBuilder(
     override val javalin: Javalin,
     internal val path: String,
@@ -83,7 +118,7 @@ internal class LocationBuilder(
         result(stream).contentType(ContentType.APPLICATION_JSON)
     }
 
-    internal companion object {
+    companion object {
 
         fun <T : Any> locationAnnotation(location: KClass<T>): Location? {
             return location.findAnnotation()
@@ -94,7 +129,7 @@ internal class LocationBuilder(
         }
 
         fun <T : Any> locationPath(location: KClass<T>): String {
-            val locationAnnotation = location.findAnnotation<Location>()
+            val locationAnnotation = locationAnnotation(location)
                 ?: throw IllegalArgumentException("Location '${location.qualifiedName}' is missing required annotation 'Location'.")
 
             return buildString {
@@ -140,9 +175,26 @@ internal fun <T : Any, R : Any> ILocationBuilder.handle(
     location: KClass<T>,
     method: HandlerType,
     roles: Array<out RouteRole>,
-    handler: ILocationHandler<T, R>
+    handler: ILocationExtendedHandler<T, R>
 ): ILocationBuilder {
     return location(this, location, method, roles, handler)
+}
+
+@PublishedApi
+internal fun <T : Any, R : Any> location(
+    builder: ILocationBuilder,
+    location: KClass<T>,
+    methods: Array<out HandlerType>,
+    roles: Array<out RouteRole>,
+    handler: ILocationExtendedMethodHandler<T, R>
+): ILocationBuilder {
+    methods.forEach { method ->
+        location(builder, location, method, roles) { ctx ->
+            handler.invoke(this, method, ctx)
+        }
+    }
+
+    return builder
 }
 
 internal fun <T : Any, R : Any> location(
@@ -150,7 +202,7 @@ internal fun <T : Any, R : Any> location(
     location: KClass<T>,
     method: HandlerType,
     roles: Array<out RouteRole>,
-    handler: ILocationHandler<T, R>
+    handler: ILocationExtendedHandler<T, R>
 ): ILocationBuilder {
     val extendedBuilder = builder as LocationBuilder
 
