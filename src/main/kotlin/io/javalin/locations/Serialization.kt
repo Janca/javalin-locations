@@ -70,8 +70,7 @@ internal fun <T : Any> Context.hydrate(location: KClass<T>, builder: LocationBui
                 val body = body()
                 when {
                     body.isNotBlank() -> {
-                        val inst = builder.jsonMapper()
-                            .fromJsonString(body, ((property.returnType.classifier!!) as KClass<*>).java)
+                        val inst = builder.jsonMapper().fromJsonString(body, ((property.returnType.classifier!!) as KClass<*>).java)
                         setProperty(property, locationInstance, inst, false)
                     }
                 }
@@ -138,7 +137,10 @@ private fun <T : Any> Context.createInstance(location: KClass<T>, builder: Locat
 private fun <V : Any> setProperty(property: KProperty1<Any, V>, instance: Any, value: Any, cast: Boolean = true) {
     try {
         val type = property.returnType
-        val hydrated: V = value.cast(type) ?: return
+        val hydrated: V = when(cast) {
+            true -> value.cast(type) ?: return
+            else -> value as V
+        }
 
         when (property) {
             is KMutableProperty1<Any, V> -> property.set(instance, hydrated)
