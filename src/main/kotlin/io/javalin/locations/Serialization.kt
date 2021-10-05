@@ -34,8 +34,7 @@ internal fun <T : Any> Context.hydrate(location: KClass<T>, builder: LocationBui
         ?: throw IllegalStateException("Parameter 'location' must be a class annotated with the Location annotation.")
 
     val locationInstance = createInstance(location, builder)
-    val locationProperties: Collection<KProperty1<Any, Any>> =
-        location.declaredMemberProperties as Collection<KProperty1<Any, Any>>
+    val locationProperties: Collection<KProperty1<Any, Any>> = location.declaredMemberProperties as Collection<KProperty1<Any, Any>>
 
     locationProperties.forEach { property ->
         var hydrated = false
@@ -122,7 +121,7 @@ private fun <T : Any> Context.createInstance(location: KClass<T>, builder: Locat
         ?: throw IllegalStateException("Parameter 'location' must be a class annotated with the Location annotation.")
 
     return when {
-        locationAnnotation.eagerHydration -> try {
+        locationAnnotation.eagerHydration || location.hasAnnotation<PostBody>() -> try {
             builder.jsonMapper().fromJsonString(body(), location.java)
         } catch (e: Exception) {
             location.createInstance()

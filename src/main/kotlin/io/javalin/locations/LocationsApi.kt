@@ -13,12 +13,7 @@ fun Javalin.path(fragment: String, init: ILocationInit): Javalin {
     return this
 }
 
-inline fun <reified T : Any> Javalin.path(noinline init: ILocationInit): Javalin {
-    val location = T::class
-    val locationPath = LocationBuilder.locationPath(location)
-
-    return path(locationPath, init)
-}
+fun ILocationBuilder.pathGroup(init: ILocationInit) = path("", init)
 
 inline fun <reified T : Any> ILocationBuilder.get(
     vararg role: RouteRole = EMPTY_ROLES,

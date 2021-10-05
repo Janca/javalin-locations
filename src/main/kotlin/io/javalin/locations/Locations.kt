@@ -8,7 +8,6 @@ import io.javalin.http.Handler
 import io.javalin.http.HandlerType
 import io.javalin.plugin.json.JsonMapper
 import io.javalin.plugin.json.jsonMapper
-import java.util.*
 import kotlin.reflect.KClass
 import kotlin.reflect.full.findAnnotation
 
@@ -132,40 +131,54 @@ internal class LocationBuilder(
             val locationAnnotation = locationAnnotation(location)
                 ?: throw IllegalArgumentException("Location '${location.qualifiedName}' is missing required annotation 'Location'.")
 
-            return buildString {
-                var enclosingClass: Class<*>? = location.java
 
-                val parentPathLocations = LinkedList<Location>()
-                do {
-                    val next = enclosingClass?.enclosingClass ?: break
-                    if (enclosingClass == next) {
-                        break
-                    }
+            var enclosingClass: Class<*>? = location.java
+            var workingPath = ""
 
-                    enclosingClass = next
-                    val enclosingAnnotation = locationAnnotation(next) ?: break
-                    parentPathLocations.addFirst(enclosingAnnotation)
-                } while (true)
+            do {
+                val next = enclosingClass?.enclosingClass ?: break
+                if (enclosingClass == next) {
+                    break
+                }
 
-                val parentPaths = parentPathLocations.map { it.path }
-                    .toTypedArray()
+                enclosingClass = next
+                val enclosingAnnotation = locationAnnotation(next) ?: break
 
-                append(normalize(*parentPaths))
-                append(locationAnnotation.path)
-            }.takeIf { it.isNotBlank() }
-                ?: throw IllegalArgumentException(
-                    "Location '${location.qualifiedName}' cannot have empty path; specify path on '${location.qualifiedName}' or define non-empty path on parent if nested."
-                )
+                val parentPath = enclosingAnnotation.path
+                if (parentPath.isBlank()) {
+                    break
+                }
+
+                workingPath = normalize(workingPath, parentPath)
+            } while (true)
+
+            workingPath = normalize(workingPath, locationAnnotation.path)
+            if (workingPath.isBlank()) {
+                throw IllegalArgumentException("Location '${location.qualifiedName}' cannot have empty path; specify path on '${location.qualifiedName}' or define non-empty path on parent if nested.")
+            }
+
+            return workingPath
         }
 
         fun normalize(vararg fragment: String): String {
-            return fragment.joinToString("") {
-                when {
-                    it.isBlank() -> ""
-                    it.startsWith("/") -> it
-                    else -> "/$it"
+            var workingPath = "/"
+
+            fragment.forEach {
+                val path = when {
+                    workingPath.isNotBlank() && it.startsWith(workingPath) -> it.substringAfter(workingPath)
+                    else -> it
+                }
+
+                workingPath += when {
+                    workingPath.endsWith("/") -> path
+                    else -> when {
+                        path.startsWith("/") -> path
+                        else ->"/$path"
+                    }
                 }
             }
+
+            return workingPath
         }
     }
 }
@@ -211,6 +224,8 @@ internal fun <T : Any, R : Any> location(
         builderPath,
         LocationBuilder.locationPath(location)
     )
+
+    println("builderPath: $builderPath; locationPath: $locationPath")
 
     val javalin = extendedBuilder.javalin
 

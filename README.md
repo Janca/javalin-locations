@@ -2,8 +2,10 @@
 
 ### *Annotation library for routing in Javalin, loosely based on the Locations feature library for Ktor.*
 
-#### Targeting Javalin Version 4.x
+### Targeting Javalin Version 4.x
+
 ```xml
+
 <dependency>
     <groupId>io.javalin</groupId>
     <artifactId>javalin</artifactId>
@@ -13,7 +15,9 @@
 
 *Currently the Javalin Locations library is not on Maven Central, please build and install locally.*
 
-#### Example usage:
+### Example usage:
+
+#### Sample Application
 
 ```kotlin
 import io.javalin.Javalin
@@ -107,4 +111,61 @@ object AuthenticationAPI {
     }
 
 }
+```
+
+#### Handle GET or POST in same handler
+
+```kotlin
+@Location("/image/{id}.png")
+data class Image(val id: String? = null)
+
+Javalin.create().locations {
+    handle<Image>(HandlerType.GET, HandlerType.POST) { method, ctx ->
+        ctx.result("You've reached here via the '$method' method.")
+    }
+}.start()
+```
+
+#### Wrap handlers in JetBrains Exposed DB transactions
+
+```kotlin
+@Location("/status")
+object Status
+
+@Location("/users")
+object Users {
+
+    @Location("/{id}")
+    data class Single(val id: Int = -1)
+
+}
+
+Javalin.create()
+    .locations {
+        head<Status> { ctx ->
+            ctx.status(200)
+        }
+
+        pathGroup {
+            // all handlers in path group will use this when invoked
+            handler { parent -> // be sure to call `handle(Context)` on parent
+                Handler { ctx ->
+                    transaction { // wrap whole handler in Exposed transaction
+                        parent.handle(ctx)
+                    }
+                }
+            }
+
+            get<Users.Single> {
+                when (id) {
+                    -1 -> ctx.status(400).result("Invalid user identifier.")
+                    else -> when (val targetUser =
+                        UsersTable.findById(id)) { // this is safe to do because handler is wrapped in transaction now
+                        null -> ctx.status(400).result("Invalid user identifier.")
+                        else -> ctx.payload(targetUser) // serializing is also done inside transaction
+                    }
+                }
+            }
+        }
+    }.start()
 ```
