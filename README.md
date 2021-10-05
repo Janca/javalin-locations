@@ -36,8 +36,8 @@ route's path and will be hydrated by the incoming request and passed to the hand
 also be annotated with `@Location`.
 
 ```kotlin
-@Location("/some/test/route/{param1}")
-class TestRoute(val param1: String? = null)
+@Location("/some/test/route/{param1}") // <- required annotation for routing
+class TestRoute(val param1: String? = null) // <- param1 will be hydrated from the request, using query, form, or path parameters.
 
 javalin.locations {
     get<TestRoute> { ctx ->
@@ -53,6 +53,19 @@ javalin.locations {
     }
 }
 ```
+
+#### Hydrating and Serialization
+The `javalin-locations` library by defaults eagerly hydrates all declared properties on a `Location` class. Meaning,
+it will use path parameters, query parameters, form parameters, and even the POST body to hydrate. To disable the feature explicitly set `eagerHydration` to `false`.
+You will then have to explicitly define annotations on the type of hydration you are wanting to use per property.
+
+```kotlin
+@Location("/example", eagerHydration = false) // <- disabled eager hydration
+class ExampleRoute(@QueryParameter val id:Int = -1) // <- Property `id` will now only be hydrated by a query parameter.
+```
+
+Leaving eager hydration enabled, you can still explicitly define annotations for hydration on class properties, with those
+declaration taking priority over eager hydration.
 
 ### Extended usage:
 
