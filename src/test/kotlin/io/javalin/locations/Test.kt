@@ -13,10 +13,6 @@ fun main() {
             configureAuthenticationAPI()
             configureServiceAPI()
         }
-
-        get<ArraySerialization.TestA> {
-            it.payload(ids)
-        }
     }.start(8080)
 
 }
@@ -76,14 +72,6 @@ object ServiceAPI {
     class Uptime(@QueryParameter val raw: Boolean = false) {
         class Response(val uptime: Any)
     }
-
-}
-
-@Location("/arrays")
-object ArraySerialization {
-
-    @Location("/testa")
-    class TestA(val ids: IntArray = intArrayOf())
 
 }
 
