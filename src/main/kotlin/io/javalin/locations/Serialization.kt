@@ -40,6 +40,19 @@ internal fun <T : Any> Context.hydrate(location: KClass<T>, builder: LocationBui
         var hydrated = false
         val propertyName = property.name
 
+        val propertyReturnType = property.returnType
+        val propertyReturnTypeClassifier = propertyReturnType.classifier
+        if(propertyReturnTypeClassifier is KClass<*>) {
+            val propertyClassAnnotation = LocationBuilder.locationAnnotation(propertyReturnTypeClassifier)
+            if(propertyClassAnnotation != null) {
+                try {
+                    val inst = this.hydrate(propertyReturnTypeClassifier, builder)
+                    setProperty(property, locationInstance, inst, false)
+                    hydrated = true
+                } catch (ignore:Exception) { }
+            }
+        }
+
         property.findAnnotation<QueryParameter>()?.let { annot ->
             val hydrateKey = annot.name.takeIf { it.isNotBlank() } ?: propertyName
             queryParameters[hydrateKey]?.let {
@@ -75,9 +88,7 @@ internal fun <T : Any> Context.hydrate(location: KClass<T>, builder: LocationBui
                         hydrated = true
                     }
                 }
-            } catch (e: Exception) {
-                // NOP
-            }
+            } catch (ignore: Exception) { }
         }
 
         if (!hydrated && locationAnnotation.eagerHydration) {
