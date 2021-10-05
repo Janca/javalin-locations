@@ -238,3 +238,14 @@ Javalin.create()
         }
     }.start()
 ```
+
+#### Accessing context from `Location` class
+Sometimes you might want to write additional properties inside your `Location` classes that use information
+from the current `Context`. You can gain access by extending the class `ContextAwareLocation`.
+
+```kotlin
+class SpecialRoute : ContextAwareLocation() {
+    // context is available here as a protected property
+    val authorizationToken =  context.header("Authorization")
+}
+```

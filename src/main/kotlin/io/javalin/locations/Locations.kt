@@ -44,10 +44,8 @@ annotation class PathParameter(val name: String = "")
 annotation class QueryParameter(val name: String = "")
 
 open class ContextAwareLocation {
-
-    lateinit var context: Context
-        internal set
-
+    internal lateinit var backingContext: Context
+    protected val context: Context get() = backingContext
 }
 
 interface ILocationBuilder {
@@ -173,7 +171,7 @@ internal class LocationBuilder(
                     workingPath.endsWith("/") -> path
                     else -> when {
                         path.startsWith("/") -> path
-                        else ->"/$path"
+                        else -> "/$path"
                     }
                 }
             }

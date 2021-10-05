@@ -130,7 +130,7 @@ private fun <T : Any> Context.createInstance(location: KClass<T>, builder: Locat
         else -> location.createInstance()
     }.also {
         if (it is ContextAwareLocation) {
-            it.context = this
+            it.backingContext = this
         }
     }
 }
