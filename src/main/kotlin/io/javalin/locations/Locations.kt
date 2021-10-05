@@ -14,6 +14,7 @@ import kotlin.reflect.full.findAnnotation
 
 typealias ILocationInit = ILocationBuilder.() -> Unit
 typealias ILocationHandler<T, R> = T.(Context) -> R
+typealias ILocationErrorHandler = (Throwable, Context) -> Unit
 typealias ILocationHandlerFactory = (parent: Handler) -> Handler
 
 interface ILocationBuilder {
@@ -23,6 +24,8 @@ interface ILocationBuilder {
     fun jsonMapper(init: () -> JsonMapper)
 
     fun jsonMapper(): JsonMapper
+
+    fun errorHandler(handler: (Throwable, Context) -> Unit)
 
     fun Context.payload(o: Any)
     fun Context.stream(o: Any)
@@ -34,6 +37,7 @@ internal interface IExtendedLocationBuilder {
     val javalin: Javalin
     val jsonMapper: JsonMapper
     val handlerFactory: ILocationHandlerFactory
+    val errorHandler: ILocationErrorHandler?
 }
 
 internal class LocationBuilder(
@@ -41,8 +45,8 @@ internal class LocationBuilder(
     internal val path: String,
     parent: LocationBuilder? = null
 ) : ILocationBuilder, IExtendedLocationBuilder {
+    override var errorHandler: ILocationErrorHandler? = parent?.errorHandler
     override var handlerFactory: ILocationHandlerFactory = parent?.handlerFactory ?: { it }
-
     override var jsonMapper: JsonMapper = parent?.jsonMapper ?: javalin.jsonMapper()
 
     override fun handler(handler: ILocationHandlerFactory) {
@@ -63,6 +67,10 @@ internal class LocationBuilder(
         val locationPath = normalize(path, fragment)
         val locationBuilder = LocationBuilder(javalin, locationPath, this)
         init.invoke(locationBuilder)
+    }
+
+    override fun errorHandler(handler: (Throwable, Context) -> Unit) {
+        this.errorHandler = handler
     }
 
     override fun Context.payload(o: Any) {
@@ -155,12 +163,17 @@ internal fun <T : Any, R : Any> location(
     val javalin = extendedBuilder.javalin
 
     val defaultHandler = Handler { ctx ->
-        val locationInst = ctx.hydrate(location, extendedBuilder)
-        when (val response: R = handler.invoke(locationInst, ctx)) {
-            !is Unit -> {
-                val json = extendedBuilder.jsonMapper().toJsonString(response)
-                ctx.result(json).contentType(ContentType.APPLICATION_JSON)
+        try {
+            val locationInst = ctx.hydrate(location, extendedBuilder)
+            when (val response: R = handler.invoke(locationInst, ctx)) {
+                !is Unit -> {
+                    val json = extendedBuilder.jsonMapper().toJsonString(response)
+                    ctx.result(json).contentType(ContentType.APPLICATION_JSON)
+                }
             }
+        } catch (e: Throwable) {
+            val errorHandler = extendedBuilder.errorHandler ?: throw e
+            errorHandler.invoke(e, ctx)
         }
     }
 

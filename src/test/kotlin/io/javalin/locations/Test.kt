@@ -8,12 +8,18 @@ private val SERVER_START_TIME_MS = System.currentTimeMillis()
 
 fun main() {
 
-    Javalin.create().locations {
-        path("/api/v1") {
+    Javalin.create()
+        .path("/api/v1") {
+            errorHandler { throwable, ctx ->
+                when (throwable) {
+                    is IllegalArgumentException -> ctx.result("Invalid argument.").status(400)
+                    else -> ctx.result("Server Exception").status(500)
+                }
+            }
+
             configureAuthenticationAPI()
             configureServiceAPI()
-        }
-    }.start(8080)
+        }.start(8080)
 
 }
 

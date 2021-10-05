@@ -8,11 +8,7 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
-import kotlin.reflect.full.createInstance
-import kotlin.reflect.full.createType
-import kotlin.reflect.full.declaredMemberProperties
-import kotlin.reflect.full.findAnnotation
-import kotlin.reflect.full.isSubclassOf
+import kotlin.reflect.full.*
 import kotlin.reflect.jvm.javaField
 import kotlin.reflect.jvm.jvmErasure
 
@@ -140,16 +136,20 @@ private fun <T : Any> Context.createInstance(location: KClass<T>, builder: Locat
 }
 
 private fun <V : Any> setProperty(property: KProperty1<Any, V>, instance: Any, value: Any, cast: Boolean = true) {
-    val type = property.returnType
-    val hydrated: V = value.cast(type) ?: return
+    try {
+        val type = property.returnType
+        val hydrated: V = value.cast(type) ?: return
 
-    when (property) {
-        is KMutableProperty1<Any, V> -> property.set(instance, hydrated)
-        else -> {
-            val backingField = property.javaField ?: return
-            backingField.isAccessible = true
-            backingField.set(instance, hydrated)
+        when (property) {
+            is KMutableProperty1<Any, V> -> property.set(instance, hydrated)
+            else -> {
+                val backingField = property.javaField ?: return
+                backingField.isAccessible = true
+                backingField.set(instance, hydrated)
+            }
         }
+    } catch (e:Exception) {
+        e.printStackTrace()
     }
 }
 
