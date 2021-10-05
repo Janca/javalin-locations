@@ -44,24 +44,24 @@ internal fun <T : Any> Context.hydrate(location: KClass<T>, builder: LocationBui
         property.findAnnotation<QueryParameter>()?.let { annot ->
             val hydrateKey = annot.name.takeIf { it.isNotBlank() } ?: propertyName
             queryParameters[hydrateKey]?.let {
-                hydrated = true
                 setProperty(property, locationInstance, it)
+                hydrated = true
             }
         }
 
         property.findAnnotation<FormParameter>()?.let { annot ->
             val hydrateKey = annot.name.takeIf { it.isNotBlank() } ?: propertyName
             formParameters[hydrateKey]?.let {
-                hydrated = true
                 setProperty(property, locationInstance, it)
+                hydrated = true
             }
         }
 
         property.findAnnotation<PathParameter>()?.let { annot ->
             val hydrateKey = annot.name.takeIf { it.isNotBlank() } ?: propertyName
             pathParameters[hydrateKey]?.let {
-                hydrated = true
                 setProperty(property, locationInstance, it)
+                hydrated = true
             }
         }
 
@@ -73,6 +73,7 @@ internal fun <T : Any> Context.hydrate(location: KClass<T>, builder: LocationBui
                         val type = ((property.returnType.classifier!!) as KClass<*>).java
                         val inst = builder.jsonMapper().fromJsonString(body, type)
                         setProperty(property, locationInstance, inst, false)
+                        hydrated = true
                     }
                 }
             } catch (e: Exception) {
