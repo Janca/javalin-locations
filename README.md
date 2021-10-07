@@ -18,7 +18,6 @@
 ### Basics
 
 #### Entry-Points
-
 The main entry-point for the `javalin-locations` library is the `Javalin.locations(ILocationInit)`
 or `Javalin.path(String, ILocationInit)` extension methods. From within here you will be able to use the common HTTP
 methods as route handlers, such as `get` and `post` and others.
@@ -30,7 +29,6 @@ javalin.locations {
 ```
 
 #### HTTP method handlers
-
 When using `javalin-locations` route handlers, you must define a class type that will be used for generating the
 route's path and will be hydrated by the incoming request and passed to the handler as `this`. The defined class must
 also be annotated with `@Location`.
@@ -65,7 +63,18 @@ class ExampleRoute(@QueryParameter val id:Int = -1) // <- Property `id` will now
 ```
 
 Leaving eager hydration enabled, you can still explicitly define annotations for hydration on class properties, with those
-declaration taking priority over eager hydration.
+declarations taking priority over eager hydration.
+<br/>
+<hr/>
+
+### Gotchas :disappointed:
+While I would like to avoid 'gotchas' there is one that is important to mention. Because of how the JsonMapper concept
+is implemented in Javalin, and because Javalin Context does not have an interface, and not using open methods, I am unable to
+directly override Javalin's JsonMapper. Because of this, you will now need to call `Context.serialize(Any)` as a replacement
+for `Context.json(Any)`. JSON streaming has also been replaced with `Context.streamSerializer(Any)`. If things change
+in the official library, of if someone smarter than me comes up with a solution, besides object proxying, I will revisit this concept then.
+<br/>
+<hr/>
 
 ### Extended usage:
 
@@ -129,13 +138,13 @@ fun ILocationBuilder.configureAuthenticationAPI() {
 
         post<AuthenticationAPI.Login> { ctx ->
             when {
-                username.isNullOrBlank() -> ctx.json(AuthenticationAPI.Login.Response("Invalid username."))
-                password.isNullOrBlank() -> ctx.json(AuthenticationAPI.Login.Response("Invalid password."))
+                username.isNullOrBlank() -> ctx.serialize(AuthenticationAPI.Login.Response("Invalid username."))
+                password.isNullOrBlank() -> ctx.serialize(AuthenticationAPI.Login.Response("Invalid password."))
                 else -> {
                     // TODO authentication
 
-                    // use Context#payload(Any) to use the JsonMapper assigned to the location
-                    ctx.payload(AuthenticationAPI.Login.Response("Authentication successful."))
+                    // use Context#serialize(Any) to use the JsonMapper assigned to the location
+                    ctx.serialize(AuthenticationAPI.Login.Response("Authentication successful."))
                 }
             }
         }
@@ -235,6 +244,9 @@ Javalin.create()
 ```
 
 #### Handler's return value used as payload
+Using the extended API, method handlers require two types. The first is the object type hydrated
+and passed to the handler as `this`. The second type is the return type. Your handler must return an object of this type.
+That object will then be serialized using `Context.serialize`.
 
 ```kotlin
 class SampleRequest {
@@ -259,8 +271,11 @@ Sometimes you might want to write additional properties inside your `Location` c
 from the current `Context`. You can gain access by extending the class `ContextAwareLocation`.
 
 ```kotlin
+@Location("/special")
 class SpecialRoute : ContextAwareLocation() {
     // context is available here as a protected property
     val authorizationToken =  context.header("Authorization")
+        .takeIf { !it.isNullOrEmpty() && it.startsWith("Bearer") }
+        ?.substring(7)
 }
 ```

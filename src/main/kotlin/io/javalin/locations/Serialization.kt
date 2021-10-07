@@ -162,9 +162,7 @@ private fun <V : Any> setProperty(property: KProperty1<Any, V>, instance: Any, v
                 backingField.set(instance, hydrated)
             }
         }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
+    } catch (ignore: Exception) { }
 }
 
 private fun <V : Any> Any.cast(type: KType, debug: Boolean = false): V? {
@@ -186,10 +184,19 @@ private fun <V : Any> String.cast(type: KType): V? {
         FLOAT_TYPE -> this.toFloat()
         LONG_TYPE -> this.toLong()
 
-        BOOLEAN_TYPE, NULLABLE_BOOLEAN_TYPE -> when {
+        BOOLEAN_TYPE -> when {
             this.isEmpty() -> true
             else -> when (this.toIntOrNull()) {
                 null -> this.toBoolean()
+                1 -> true
+                else -> false
+            }
+        }
+
+        NULLABLE_BOOLEAN_TYPE -> when {
+            this.isEmpty() -> null
+            else -> when(this.toIntOrNull()) {
+                null -> this.toBooleanStrictOrNull()
                 1 -> true
                 else -> false
             }
@@ -229,7 +236,6 @@ private fun Stream<*>.castArray(type: KType): Any {
             BYTE_ARRAY_TYPE -> ByteArray(length) { values[it].cast(BYTE_TYPE)!! }
             SHORT_ARRAY_TYPE -> ShortArray(length) { values[it].cast(SHORT_TYPE)!! }
             INT_ARRAY_TYPE -> IntArray(length) { values[it].cast(INT_TYPE)!! }
-
             DOUBLE_ARRAY_TYPE -> DoubleArray(length) { values[it].cast(DOUBLE_TYPE)!! }
             FLOAT_ARRAY_TYPE -> FloatArray(length) { values[it].cast(FLOAT_TYPE)!! }
             LONG_ARRAY_TYPE -> LongArray(length) { values[it].cast(LONG_TYPE)!! }
@@ -257,17 +263,14 @@ private fun Array<*>.cast(type: KType): Any {
 
 private fun String.castArray(type: KType): Any {
     fun String.kotlinArray(): Any {
-        val arrayType = type.jvmErasure.java
-        val castType = arrayType.componentType.kotlin.createType()
-
         return when (type) {
-            BYTE_ARRAY_TYPE -> ByteArray(1) { this.cast(castType)!! }
-            SHORT_ARRAY_TYPE -> ShortArray(1) { this.cast(castType)!! }
-            INT_ARRAY_TYPE -> IntArray(1) { this.cast(castType)!! }
-            DOUBLE_ARRAY_TYPE -> DoubleArray(1) { this.cast(castType)!! }
-            FLOAT_ARRAY_TYPE -> FloatArray(1) { this.cast(castType)!! }
-            LONG_ARRAY_TYPE -> LongArray(1) { this.cast(castType)!! }
-            BOOLEAN_ARRAY_TYPE -> BooleanArray(1) { this.cast(castType)!! }
+            BYTE_ARRAY_TYPE -> ByteArray(1) { this.cast(BYTE_TYPE)!! }
+            SHORT_ARRAY_TYPE -> ShortArray(1) { this.cast(SHORT_TYPE)!! }
+            INT_ARRAY_TYPE -> IntArray(1) { this.cast(INT_TYPE)!! }
+            DOUBLE_ARRAY_TYPE -> DoubleArray(1) { this.cast(DOUBLE_TYPE)!! }
+            FLOAT_ARRAY_TYPE -> FloatArray(1) { this.cast(FLOAT_TYPE)!! }
+            LONG_ARRAY_TYPE -> LongArray(1) { this.cast(LONG_TYPE)!! }
+            BOOLEAN_ARRAY_TYPE -> BooleanArray(1) { this.cast(BOOLEAN_TYPE)!! }
             else -> throw IllegalArgumentException("Unsupported array type. [${type.classifier}]")
         }
     }

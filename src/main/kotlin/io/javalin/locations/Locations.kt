@@ -58,8 +58,8 @@ interface ILocationBuilder {
 
     fun errorHandler(handler: (Throwable, Context) -> Unit)
 
-    fun Context.payload(o: Any)
-    fun Context.stream(o: Any)
+    fun Context.serialize(o: Any)
+    fun Context.streamSerializer(o: Any)
 
     fun path(fragment: String, init: ILocationInit)
 }
@@ -105,12 +105,12 @@ internal class LocationBuilder(
         this.errorHandler = handler
     }
 
-    override fun Context.payload(o: Any) {
+    override fun Context.serialize(o: Any) {
         val json = jsonMapper().toJsonString(o)
         result(json).contentType("application/json")
     }
 
-    override fun Context.stream(o: Any) {
+    override fun Context.streamSerializer(o: Any) {
         val stream = jsonMapper().toJsonStream(o)
         result(stream).contentType(ContentType.APPLICATION_JSON)
     }

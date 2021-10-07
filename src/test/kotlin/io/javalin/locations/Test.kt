@@ -56,13 +56,13 @@ fun ILocationBuilder.configureAuthenticationAPI() {
 
     post<AuthenticationAPI.Login> { ctx ->
         when {
-            username.isNullOrBlank() -> ctx.json(AuthenticationAPI.Login.Response("Invalid username."))
-            password.isNullOrBlank() -> ctx.json(AuthenticationAPI.Login.Response("Invalid password."))
+            username.isNullOrBlank() -> ctx.serialize(AuthenticationAPI.Login.Response("Invalid username."))
+            password.isNullOrBlank() -> ctx.serialize(AuthenticationAPI.Login.Response("Invalid password."))
             else -> {
                 // TODO authentication
 
-                // use Context#payload(Any) to use the JsonMapper assigned to the location
-                ctx.payload(AuthenticationAPI.Login.Response("Authentication successful."))
+                // use Context#serialize(Any) to use the JsonMapper assigned to the location
+                ctx.serialize(AuthenticationAPI.Login.Response("Authentication successful."))
             }
         }
     }

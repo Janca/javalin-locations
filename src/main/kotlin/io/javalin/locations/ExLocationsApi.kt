@@ -49,7 +49,7 @@ inline fun <reified T : Any, R : Any> ILocationBuilder.options(
 ) = handle(T::class, HandlerType.OPTIONS, role, handler)
 
 inline fun <reified T : Any, R : Any> ILocationBuilder.handle(
-    methods: Array<out HandlerType>,
+    vararg methods: HandlerType,
     roles: Array<out RouteRole>,
     noinline handler: ILocationExtendedMethodHandler<T, R>
 ): ILocationBuilder = location(this, T::class, methods, roles, handler)
