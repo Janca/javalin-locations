@@ -274,7 +274,10 @@ from the current `Context`. You can gain access by extending the class `ContextA
 @Location("/special")
 class SpecialRoute : ContextAwareLocation() {
     // context is available here as a protected property
-    val authorizationToken =  context.header("Authorization")
+    // IMPORTANT: context is only provided after hydration is complete
+    // you will either have to use functions or val getters
+    // or a lateinit exception will be thrown
+    val authorizationToken get() = context.header("Authorization")
         .takeIf { !it.isNullOrEmpty() && it.startsWith("Bearer") }
         ?.substring(7)
 }
