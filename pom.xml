@@ -6,7 +6,7 @@
 
     <groupId>io.javalin.locations</groupId>
     <artifactId>javalin-locations</artifactId>
-    <version>${javalin.version}-SNAPSHOT</version>
+    <version>${javalin.version}</version>
     <packaging>jar</packaging>
 
     <name>io.javalin.locations javalin-locations</name>
