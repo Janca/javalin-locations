@@ -2,12 +2,9 @@ package io.javalin.locations
 
 import io.javalin.Javalin
 import io.javalin.core.security.RouteRole
-import io.javalin.http.ContentType
 import io.javalin.http.Context
 import io.javalin.http.Handler
 import io.javalin.http.HandlerType
-import io.javalin.plugin.json.JsonMapper
-import io.javalin.plugin.json.jsonMapper
 import kotlin.reflect.KClass
 import kotlin.reflect.full.findAnnotation
 
@@ -49,24 +46,15 @@ open class ContextAwareLocation {
 }
 
 interface ILocationBuilder {
-    fun handler(handler: ILocationHandlerFactory)
-
-    fun jsonMapper(mapper: JsonMapper)
-    fun jsonMapper(init: () -> JsonMapper)
-
-    fun jsonMapper(): JsonMapper
+    fun handlerFactory(handler: ILocationHandlerFactory)
 
     fun errorHandler(handler: (Throwable, Context) -> Unit)
-
-    fun Context.serialize(o: Any)
-    fun Context.streamSerializer(o: Any)
 
     fun path(fragment: String, init: ILocationInit)
 }
 
 internal interface IExtendedLocationBuilder {
     val javalin: Javalin
-    val jsonMapper: JsonMapper
     val handlerFactory: ILocationHandlerFactory
     val errorHandler: ILocationErrorHandler?
 }
@@ -79,21 +67,10 @@ internal class LocationBuilder(
 ) : ILocationBuilder, IExtendedLocationBuilder {
     override var errorHandler: ILocationErrorHandler? = parent?.errorHandler
     override var handlerFactory: ILocationHandlerFactory = parent?.handlerFactory ?: { it }
-    override var jsonMapper: JsonMapper = parent?.jsonMapper ?: javalin.jsonMapper()
 
-    override fun handler(handler: ILocationHandlerFactory) {
+    override fun handlerFactory(handler: ILocationHandlerFactory) {
         this.handlerFactory = handler
     }
-
-    override fun jsonMapper(mapper: JsonMapper) {
-        this.jsonMapper = mapper
-    }
-
-    override fun jsonMapper(init: () -> JsonMapper) {
-        this.jsonMapper = init.invoke()
-    }
-
-    override fun jsonMapper(): JsonMapper = jsonMapper
 
     override fun path(fragment: String, init: ILocationInit) {
         val locationPath = normalize(path, fragment)
@@ -103,16 +80,6 @@ internal class LocationBuilder(
 
     override fun errorHandler(handler: (Throwable, Context) -> Unit) {
         this.errorHandler = handler
-    }
-
-    override fun Context.serialize(o: Any) {
-        val json = jsonMapper().toJsonString(o)
-        result(json).contentType("application/json")
-    }
-
-    override fun Context.streamSerializer(o: Any) {
-        val stream = jsonMapper().toJsonStream(o)
-        result(stream).contentType(ContentType.APPLICATION_JSON)
     }
 
     companion object {
@@ -230,8 +197,7 @@ internal fun <T : Any, R : Any> location(
             val locationInst = ctx.hydrate(location, extendedBuilder)
             when (val response: R = handler.invoke(locationInst, ctx)) {
                 !is Unit -> {
-                    val json = extendedBuilder.jsonMapper().toJsonString(response)
-                    ctx.result(json).contentType(ContentType.APPLICATION_JSON)
+                    ctx.json(response)
                 }
             }
         } catch (e: Throwable) {

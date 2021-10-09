@@ -1,7 +1,6 @@
 package io.javalin.locations
 
 import io.javalin.Javalin
-import io.javalin.plugin.json.JavalinJackson
 import java.time.Duration
 
 private val SERVER_START_TIME_MS = System.currentTimeMillis()
@@ -46,23 +45,15 @@ fun ILocationBuilder.configureServiceAPI() {
 }
 
 fun ILocationBuilder.configureAuthenticationAPI() {
-    jsonMapper {
-        // You can define json mappers per path group,
-        // or globally on the Javalin#location(ILocationBuilder.()->Unit) entry point
-        // if none are set, defaults to Javalin.jsonMapper()
-
-        JavalinJackson()
-    }
 
     post<AuthenticationAPI.Login> { ctx ->
         when {
-            username.isNullOrBlank() -> ctx.serialize(AuthenticationAPI.Login.Response("Invalid username."))
-            password.isNullOrBlank() -> ctx.serialize(AuthenticationAPI.Login.Response("Invalid password."))
+            username.isNullOrBlank() -> ctx.json(AuthenticationAPI.Login.Response("Invalid username."))
+            password.isNullOrBlank() -> ctx.json(AuthenticationAPI.Login.Response("Invalid password."))
             else -> {
                 // TODO authentication
 
-                // use Context#serialize(Any) to use the JsonMapper assigned to the location
-                ctx.serialize(AuthenticationAPI.Login.Response("Authentication successful."))
+                ctx.json(AuthenticationAPI.Login.Response("Authentication successful."))
             }
         }
     }

@@ -3,6 +3,7 @@
 package io.javalin.locations
 
 import io.javalin.http.Context
+import io.javalin.plugin.json.jsonMapper
 import java.util.stream.Stream
 import kotlin.reflect.KClass
 import kotlin.reflect.KMutableProperty1
@@ -83,7 +84,7 @@ internal fun <T : Any> Context.hydrate(location: KClass<T>, builder: LocationBui
                 when {
                     body.isNotBlank() -> {
                         val type = ((property.returnType.classifier!!) as KClass<*>).java
-                        val inst = builder.jsonMapper().fromJsonString(body, type)
+                        val inst = jsonMapper().fromJsonString(body, type)
                         setProperty(property, locationInstance, inst, false)
                         hydrated = true
                     }
@@ -133,7 +134,7 @@ private fun <T : Any> Context.createInstance(location: KClass<T>, builder: Locat
 
     return when {
         locationAnnotation.eagerHydration || location.hasAnnotation<PostBody>() -> try {
-            builder.jsonMapper().fromJsonString(body(), location.java)
+            jsonMapper().fromJsonString(body(), location.java)
         } catch (e: Exception) {
             location.createInstance()
         }
