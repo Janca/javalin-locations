@@ -1,14 +1,16 @@
 package io.javalin.locations
 
 import io.javalin.Javalin
+import io.javalin.core.util.RouteOverviewPlugin
 import java.time.Duration
 
 private val SERVER_START_TIME_MS = System.currentTimeMillis()
 
 fun main() {
 
-    Javalin.create()
-        .path("/api/v1") {
+    Javalin.create{
+        it.registerPlugin(RouteOverviewPlugin("/routes"))
+    }.path("/api/v1") {
             errorHandler { throwable, ctx ->
                 when (throwable) {
                     is IllegalArgumentException -> ctx.result("Invalid argument.").status(400)
@@ -24,6 +26,7 @@ fun main() {
 
 fun ILocationBuilder.configureServiceAPI() {
     head<ServiceAPI.Status> { ctx -> ctx.status(200) }
+    head<ServiceAPI.Status.API> { it.status(200) }
     get<ServiceAPI.Uptime, ServiceAPI.Uptime.Response> {
         val uptimeMillis = System.currentTimeMillis() - SERVER_START_TIME_MS
 
@@ -63,7 +66,12 @@ fun ILocationBuilder.configureAuthenticationAPI() {
 object ServiceAPI {
 
     @Location("/status")
-    object Status
+    object Status {
+
+        @Location("/api")
+        object API
+
+    }
 
     @Location("/uptime")
     class Uptime(@QueryParameter val raw: Boolean = false) {

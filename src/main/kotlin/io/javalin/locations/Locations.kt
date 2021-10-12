@@ -114,7 +114,7 @@ internal class LocationBuilder(
                     break
                 }
 
-                workingPath = normalize(workingPath, parentPath)
+                workingPath = normalize(parentPath, workingPath)
             } while (true)
 
             workingPath = normalize(workingPath, locationAnnotation.path)
