@@ -4,6 +4,7 @@ package io.javalin.locations
 
 import io.javalin.http.Context
 import io.javalin.plugin.json.jsonMapper
+import io.javalin.websocket.WsContext
 import java.util.stream.Stream
 import kotlin.reflect.KClass
 import kotlin.reflect.KMutableProperty1
@@ -13,16 +14,43 @@ import kotlin.reflect.full.*
 import kotlin.reflect.jvm.javaField
 import kotlin.reflect.jvm.jvmErasure
 
-internal fun <T : Any> Context.hydrate(location: KClass<T>, builder: LocationBuilder): T {
+internal fun <T : Any> WsContext.hydrate(location: KClass<T>): T {
+    return (this as Any).hydrate(location)
+}
+
+internal fun <T : Any> Context.hydrate(location: KClass<T>): T {
+    return (this as Any).hydrate(location)
+}
+
+private fun <T : Any> Any.hydrate(location: KClass<T>): T {
     val objectInst = location.objectInstance
     if (objectInst != null) {
         return objectInst
     }
 
-    val formParameters = formParamMap()
-    val queryParameters = queryParamMap()
+    val formParameters: Map<String, List<String>>
+    val queryParameters: Map<String, List<String>>
+    val pathParameters: Map<String, String>
 
-    val pathParameters = pathParamMap()
+    val locationInstance: T
+
+    when (this) {
+        is Context -> {
+            formParameters = formParamMap()
+            queryParameters = queryParamMap()
+            pathParameters = pathParamMap()
+            locationInstance = createInstance(location)
+        }
+
+        is WsContext -> {
+            formParameters = emptyMap()
+            queryParameters = queryParamMap()
+            pathParameters = pathParamMap()
+            locationInstance = location.createInstance()
+        }
+
+        else -> throw IllegalArgumentException()
+    }
 
     val allParameters = HashMap<String, Any>()
         .apply {
@@ -34,8 +62,8 @@ internal fun <T : Any> Context.hydrate(location: KClass<T>, builder: LocationBui
     val locationAnnotation = LocationBuilder.locationAnnotation(location)
         ?: throw IllegalStateException("Parameter 'location' must be a class annotated with the Location annotation.")
 
-    val locationInstance = createInstance(location, builder)
-    val locationProperties: Collection<KProperty1<Any, Any>> = location.declaredMemberProperties as Collection<KProperty1<Any, Any>>
+    val locationProperties: Collection<KProperty1<Any, Any>> =
+        location.declaredMemberProperties as Collection<KProperty1<Any, Any>>
 
     locationProperties.forEach { property ->
         var hydrated = false
@@ -43,14 +71,15 @@ internal fun <T : Any> Context.hydrate(location: KClass<T>, builder: LocationBui
 
         val propertyReturnType = property.returnType
         val propertyReturnTypeClassifier = propertyReturnType.classifier
-        if(propertyReturnTypeClassifier is KClass<*>) {
+        if (propertyReturnTypeClassifier is KClass<*>) {
             val propertyClassAnnotation = LocationBuilder.locationAnnotation(propertyReturnTypeClassifier)
-            if(propertyClassAnnotation != null) {
+            if (propertyClassAnnotation != null) {
                 try {
-                    val inst = this.hydrate(propertyReturnTypeClassifier, builder)
+                    val inst = this.hydrate(propertyReturnTypeClassifier)
                     setProperty(property, locationInstance, inst, false)
                     hydrated = true
-                } catch (ignore:Exception) { }
+                } catch (ignore: Exception) {
+                }
             }
         }
 
@@ -79,17 +108,22 @@ internal fun <T : Any> Context.hydrate(location: KClass<T>, builder: LocationBui
         }
 
         property.findAnnotation<PostParameter>()?.let { annot ->
-            try {
-                val body = body()
-                when {
-                    body.isNotBlank() -> {
-                        val type = ((property.returnType.classifier!!) as KClass<*>).java
-                        val inst = jsonMapper().fromJsonString(body, type)
-                        setProperty(property, locationInstance, inst, false)
-                        hydrated = true
+            when (this) {
+                is Context -> {
+                    try {
+                        val body = body()
+                        when {
+                            body.isNotBlank() -> {
+                                val type = ((property.returnType.classifier!!) as KClass<*>).java
+                                val inst = jsonMapper().fromJsonString(body, type)
+                                setProperty(property, locationInstance, inst, false)
+                                hydrated = true
+                            }
+                        }
+                    } catch (ignore: Exception) {
                     }
                 }
-            } catch (ignore: Exception) { }
+            }
         }
 
         if (!hydrated && locationAnnotation.eagerHydration) {
@@ -128,7 +162,7 @@ private val FLOAT_ARRAY_TYPE = FloatArray::class.createType()
 private val LONG_ARRAY_TYPE = LongArray::class.createType()
 private val BOOLEAN_ARRAY_TYPE = BooleanArray::class.createType()
 
-private fun <T : Any> Context.createInstance(location: KClass<T>, builder: LocationBuilder): T {
+private fun <T : Any> Context.createInstance(location: KClass<T>): T {
     val locationAnnotation = LocationBuilder.locationAnnotation(location)
         ?: throw IllegalStateException("Parameter 'location' must be a class annotated with the Location annotation.")
 
@@ -163,7 +197,8 @@ private fun <V : Any> setProperty(property: KProperty1<Any, V>, instance: Any, v
                 backingField.set(instance, hydrated)
             }
         }
-    } catch (ignore: Exception) { }
+    } catch (ignore: Exception) {
+    }
 }
 
 private fun <V : Any> Any.cast(type: KType, debug: Boolean = false): V? {
@@ -196,7 +231,7 @@ private fun <V : Any> String.cast(type: KType): V? {
 
         NULLABLE_BOOLEAN_TYPE -> when {
             this.isEmpty() -> null
-            else -> when(this.toIntOrNull()) {
+            else -> when (this.toIntOrNull()) {
                 null -> this.toBooleanStrictOrNull()
                 1 -> true
                 else -> false

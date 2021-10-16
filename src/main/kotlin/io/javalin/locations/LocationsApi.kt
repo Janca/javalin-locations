@@ -13,7 +13,7 @@ fun Javalin.path(fragment: String, init: ILocationInit): Javalin {
     return this
 }
 
-fun ILocationBuilder.pathGroup(init: ILocationInit) = path("", init)
+fun ILocationBuilder.group(init: ILocationInit) = path("", init)
 
 inline fun <reified T : Any> ILocationBuilder.get(
     vararg role: RouteRole = EMPTY_ROLES,

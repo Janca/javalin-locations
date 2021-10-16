@@ -62,7 +62,7 @@ internal interface IExtendedLocationBuilder {
 @PublishedApi
 internal class LocationBuilder(
     override val javalin: Javalin,
-    internal val path: String,
+    val path: String,
     parent: LocationBuilder? = null
 ) : ILocationBuilder, IExtendedLocationBuilder {
     override var errorHandler: ILocationErrorHandler? = parent?.errorHandler
@@ -191,7 +191,7 @@ internal fun <T : Any, R : Any> location(
 
     val defaultHandler = Handler { ctx ->
         try {
-            val locationInst = ctx.hydrate(location, extendedBuilder)
+            val locationInst = ctx.hydrate(location)
             when (val response: R = handler.invoke(locationInst, ctx)) {
                 !is Unit -> {
                     ctx.json(response)
