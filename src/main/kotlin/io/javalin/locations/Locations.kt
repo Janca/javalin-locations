@@ -125,21 +125,18 @@ internal class LocationBuilder(
             return workingPath
         }
 
-        fun normalize(vararg fragment: String): String {
-            var workingPath = "/"
+        fun normalize(path: String, vararg fragment: String): String {
+            var workingPath = when {
+                path.isBlank() -> ""
+                path.startsWith("/") -> path
+                else -> "/$path"
+            }
 
             fragment.forEach {
-                val path = when {
-                    workingPath.isNotBlank() && it.startsWith(workingPath) -> it.substringAfter(workingPath)
-                    else -> it
-                }
-
                 workingPath += when {
-                    workingPath.endsWith("/") -> path
-                    else -> when {
-                        path.startsWith("/") -> path
-                        else -> "/$path"
-                    }
+                    it.isBlank() -> ""
+                    it.startsWith("/") -> it
+                    else -> "/$it"
                 }
             }
 
