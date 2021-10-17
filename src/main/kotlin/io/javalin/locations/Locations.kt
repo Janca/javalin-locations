@@ -42,6 +42,10 @@ annotation class PathParameter(val name: String = "")
 @Retention(AnnotationRetention.RUNTIME)
 annotation class QueryParameter(val name: String = "")
 
+@Target(AnnotationTarget.PROPERTY, AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class IgnoreParameterType(vararg val types: KClass<*>)
+
 open class ContextAwareLocation {
     internal lateinit var backingContext: Context
     protected val context: Context get() = backingContext

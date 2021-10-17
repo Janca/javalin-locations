@@ -65,6 +65,8 @@ private fun <T : Any> Any.hydrate(location: KClass<T>): T {
     val locationProperties: Collection<KProperty1<Any, Any>> =
         location.declaredMemberProperties as Collection<KProperty1<Any, Any>>
 
+    val locationIgnoreParamAnnot = location.findAnnotation<IgnoreParameterType>()
+
     locationProperties.forEach { property ->
         var hydrated = false
         val propertyName = property.name
@@ -127,8 +129,42 @@ private fun <T : Any> Any.hydrate(location: KClass<T>): T {
         }
 
         if (!hydrated && locationAnnotation.eagerHydration) {
-            allParameters[propertyName]?.let {
-                setProperty(property, locationInstance, it)
+            val propIgnoreParamAnnot = property.findAnnotation<IgnoreParameterType>()
+            when {
+                locationIgnoreParamAnnot == null && propIgnoreParamAnnot == null -> {
+                    allParameters[propertyName]?.let {
+                        setProperty(property, locationInstance, it)
+                    }
+                }
+
+                else -> {
+                    val pathParamHydrationAllowed = locationIgnoreParamAnnot?.types?.contains(PathParameter::class)
+                        ?: propIgnoreParamAnnot?.types?.contains(PathParameter::class) ?: true
+
+                    val queryParamHydrationAllowed = locationIgnoreParamAnnot?.types?.contains(QueryParameter::class)
+                        ?: propIgnoreParamAnnot?.types?.contains(QueryParameter::class) ?: true
+
+                    val formParamHydrationAllowed = locationIgnoreParamAnnot?.types?.contains(FormParameter::class)
+                        ?: propIgnoreParamAnnot?.types?.contains(FormParameter::class) ?: true
+
+                    if (queryParamHydrationAllowed) {
+                        queryParameters[propertyName]?.let {
+                            setProperty(property, locationInstance, it)
+                        }
+                    }
+
+                    if (formParamHydrationAllowed) {
+                        formParameters[propertyName]?.let {
+                            setProperty(property, locationInstance, it)
+                        }
+                    }
+
+                    if (pathParamHydrationAllowed) {
+                        pathParameters[propertyName]?.let {
+                            setProperty(property, locationInstance, it)
+                        }
+                    }
+                }
             }
         }
     }

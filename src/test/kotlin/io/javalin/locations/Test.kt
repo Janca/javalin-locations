@@ -8,19 +8,19 @@ private val SERVER_START_TIME_MS = System.currentTimeMillis()
 
 fun main() {
 
-    Javalin.create{
+    Javalin.create {
         it.registerPlugin(RouteOverviewPlugin("/routes"))
     }.path("/api/v1") {
-            errorHandler { throwable, ctx ->
-                when (throwable) {
-                    is IllegalArgumentException -> ctx.result("Invalid argument.").status(400)
-                    else -> ctx.result("Server Exception").status(500)
-                }
+        errorHandler { throwable, ctx ->
+            when (throwable) {
+                is IllegalArgumentException -> ctx.result("Invalid argument.").status(400)
+                else -> ctx.result("Server Exception").status(500)
             }
+        }
 
-            configureAuthenticationAPI()
-            configureServiceAPI()
-        }.start(8080)
+        configureAuthenticationAPI()
+        configureServiceAPI()
+    }.start(8080)
 
 }
 
@@ -84,7 +84,12 @@ object AuthenticationAPI {
 
     @PostBody
     @Location("/login")
-    class Login(val username: String? = null, val password: String? = null) {
+    class Login(
+        val username: String? = null,
+
+        @IgnoreParameterType(QueryParameter::class)
+        val password: String? = null
+    ) {
         class Response(val message: String)
     }
 

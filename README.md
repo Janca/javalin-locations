@@ -53,17 +53,25 @@ javalin.locations {
 ```
 
 #### Hydrating and Serialization
-The `javalin-locations` library by defaults eagerly hydrates all declared properties on a `Location` class. Meaning,
-it will use path parameters, query parameters, form parameters, and even the POST body to hydrate. To disable the feature explicitly set `eagerHydration` to `false`.
-You will then have to explicitly define annotations on the type of hydration you are wanting to use per property.
+The `javalin-locations` library by defaults eagerly hydrates all declared properties on a `Location` class. Meaning, it
+will use path parameters, query parameters, form parameters, and even the POST body to hydrate. To disable the feature
+explicitly set `eagerHydration` to `false`. You will then have to explicitly define annotations on the type of hydration
+you are wanting to use per property.
 
 ```kotlin
 @Location("/example", eagerHydration = false) // <- disabled eager hydration
-class ExampleRoute(@QueryParameter val id:Int = -1) // <- Property `id` will now only be hydrated by a query parameter.
+class ExampleRoute(@QueryParameter val id: Int = -1) // <- Property `id` will now only be hydrated by a query parameter.
 ```
 
-Leaving eager hydration enabled, you can still explicitly define annotations for hydration on class properties, with those
-declarations taking priority over eager hydration.
+Leaving eager hydration enabled, you can still explicitly define annotations for hydration on class properties, with
+those declarations taking priority over eager hydration. You can also explicitly ignore parameter types by utilizing the
+annotation `@IgnoreParameterType(vararg KClass<*>)`.
+
+```kotlin
+@Location("/example") // <- eager hydration on by default
+class ExampleRoute(@IgnoreParameterType(QueryParameter::class) val id: Int = -1) // <- Property `id` can be eagerly hydrated except by query parameters.
+```
+
 <br/>
 <hr/>
 
@@ -161,7 +169,12 @@ object AuthenticationAPI {
 
     @PostBody
     @Location("/login")
-    class Login(val username: String? = null, val password: String? = null) {
+    class Login(
+        val username: String? = null,
+
+        @IgnoreParameterType(QueryParameter::class) // <- ignore password being passed through query parameters with eager hydration enabled
+        val password: String? = null
+    ) {
         class Response(val message: String)
     }
 
