@@ -15,6 +15,16 @@ fun Javalin.path(fragment: String, init: ILocationInit): Javalin {
 
 fun ILocationBuilder.group(init: ILocationInit) = path("", init)
 
+inline fun <reified T : Any> ILocationBuilder.before(
+    noinline handler: ILocationHandler<T>
+) = before(this, T::class, handler)
+
+inline fun <reified T : Any> ILocationBuilder.after(
+    noinline handler: ILocationAfterHandler<T>
+) = after(this, T::class) { ctx, _: Any? ->
+    handler.invoke(this, ctx)
+}
+
 inline fun <reified T : Any> ILocationBuilder.get(
     vararg role: RouteRole = EMPTY_ROLES,
     noinline handler: ILocationHandler<T>

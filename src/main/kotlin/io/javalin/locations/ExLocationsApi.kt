@@ -3,6 +3,10 @@ package io.javalin.locations
 import io.javalin.core.security.RouteRole
 import io.javalin.http.HandlerType
 
+inline fun <reified T : Any, R : Any> ILocationBuilder.after(
+    noinline handler: ILocationExtendedAfterHandler<T, R>
+) = after(this, T::class, handler)
+
 inline fun <reified T : Any, R : Any> ILocationBuilder.get(
     vararg role: RouteRole = EMPTY_ROLES,
     noinline handler: ILocationExtendedHandler<T, R>

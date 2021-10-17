@@ -9,6 +9,8 @@ import kotlin.reflect.KClass
 import kotlin.reflect.full.findAnnotation
 
 typealias ILocationInit = ILocationBuilder.() -> Unit
+typealias ILocationAfterHandler<T> = T.(Context) -> Unit
+typealias ILocationExtendedAfterHandler<T, R> = T.(Context, R?) -> Unit
 typealias ILocationHandler<T> = ILocationExtendedHandler<T, Unit>
 typealias ILocationMethodHandler<T> = ILocationExtendedMethodHandler<T, Unit>
 typealias ILocationExtendedHandler<T, R> = T.(ctx: Context) -> R
@@ -172,6 +174,45 @@ internal fun <T : Any, R : Any> location(
     return builder
 }
 
+@PublishedApi
+internal fun <T : Any> before(
+    builder: ILocationBuilder,
+    location: KClass<T>,
+    handler: ILocationHandler<T>,
+): ILocationBuilder {
+    val extendedBuilder = builder as LocationBuilder
+    val javalin = extendedBuilder.javalin
+
+    val builderPath = extendedBuilder.path
+    val locationPath = LocationBuilder.normalize(builderPath, LocationBuilder.locationPath(location))
+    javalin.before(locationPath) {
+        val hydrated = it.hydrate(location)
+        handler.invoke(hydrated, it)
+    }
+
+    return builder
+}
+
+@PublishedApi
+internal fun <T : Any, R : Any> after(
+    builder: ILocationBuilder,
+    location: KClass<T>,
+    handler: ILocationExtendedAfterHandler<T, R>,
+): ILocationBuilder {
+    val extendedBuilder = builder as LocationBuilder
+    val javalin = extendedBuilder.javalin
+
+    val builderPath = extendedBuilder.path
+    val locationPath = LocationBuilder.normalize(builderPath, LocationBuilder.locationPath(location))
+    javalin.after(locationPath) {
+        val localHandlerResult = it.attribute<R>("local-handler-result")
+        val hydrated = it.hydrate(location)
+        handler.invoke(hydrated, it, localHandlerResult)
+    }
+
+    return builder
+}
+
 internal fun <T : Any, R : Any> location(
     builder: ILocationBuilder,
     location: KClass<T>,
@@ -180,14 +221,10 @@ internal fun <T : Any, R : Any> location(
     handler: ILocationExtendedHandler<T, R>
 ): ILocationBuilder {
     val extendedBuilder = builder as LocationBuilder
+    val javalin = extendedBuilder.javalin
 
     val builderPath = extendedBuilder.path
-    val locationPath = LocationBuilder.normalize(
-        builderPath,
-        LocationBuilder.locationPath(location)
-    )
-
-    val javalin = extendedBuilder.javalin
+    val locationPath = LocationBuilder.normalize(builderPath, LocationBuilder.locationPath(location))
 
     val defaultHandler = Handler { ctx ->
         try {
@@ -195,6 +232,7 @@ internal fun <T : Any, R : Any> location(
             when (val response: R = handler.invoke(locationInst, ctx)) {
                 !is Unit -> {
                     ctx.json(response)
+                    ctx.attribute("local-handler-result", response)
                 }
             }
         } catch (e: Throwable) {
