@@ -8,9 +8,15 @@ import io.javalin.websocket.WsContext
 import java.util.stream.Stream
 import kotlin.reflect.KClass
 import kotlin.reflect.KMutableProperty1
+import kotlin.reflect.KParameter
 import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
-import kotlin.reflect.full.*
+import kotlin.reflect.full.createType
+import kotlin.reflect.full.declaredMemberProperties
+import kotlin.reflect.full.findAnnotation
+import kotlin.reflect.full.hasAnnotation
+import kotlin.reflect.full.isSubclassOf
+import kotlin.reflect.jvm.isAccessible
 import kotlin.reflect.jvm.javaField
 import kotlin.reflect.jvm.jvmErasure
 
@@ -197,6 +203,17 @@ private val DOUBLE_ARRAY_TYPE = DoubleArray::class.createType()
 private val FLOAT_ARRAY_TYPE = FloatArray::class.createType()
 private val LONG_ARRAY_TYPE = LongArray::class.createType()
 private val BOOLEAN_ARRAY_TYPE = BooleanArray::class.createType()
+
+fun <T : Any> KClass<T>.createInstance(): T {
+    // RIPPED FROM KOTLIN-SDK
+    val noArgsConstructor = constructors.singleOrNull { it.parameters.all(KParameter::isOptional) }
+        ?: throw IllegalArgumentException("Class should have a single no-arg constructor: $this")
+
+    return noArgsConstructor.also {
+        it.isAccessible = true // make accessible
+    }.callBy(emptyMap())
+}
+
 
 private fun <T : Any> Context.createInstance(location: KClass<T>): T {
     val locationAnnotation = LocationBuilder.locationAnnotation(location)

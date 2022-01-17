@@ -1,7 +1,12 @@
 package io.javalin.locations
 
 import io.javalin.Javalin
-import io.javalin.websocket.*
+import io.javalin.websocket.WsBinaryMessageContext
+import io.javalin.websocket.WsCloseContext
+import io.javalin.websocket.WsConfig
+import io.javalin.websocket.WsConnectContext
+import io.javalin.websocket.WsErrorContext
+import io.javalin.websocket.WsMessageContext
 import kotlin.reflect.KClass
 
 typealias WsLocationHandler<C, T> = T.(C) -> Unit
