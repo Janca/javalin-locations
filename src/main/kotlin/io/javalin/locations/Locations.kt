@@ -20,7 +20,7 @@ typealias ILocationHandlerFactory = (parent: Handler) -> Handler
 
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class Location(val path: String, val eagerHydration: Boolean = true)
+annotation class Location(val path: String = "", val eagerHydration: Boolean = true)
 
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
@@ -115,9 +115,10 @@ internal class LocationBuilder(
                 enclosingClass = next
                 val enclosingAnnotation = locationAnnotation(next) ?: break
 
-                val parentPath = enclosingAnnotation.path
-                if (parentPath.isBlank()) {
-                    break
+                val path = enclosingAnnotation.path
+                val parentPath = when {
+                    path.isBlank() -> "/${next.simpleName.lowercase()}"
+                    else -> path
                 }
 
                 workingPath = normalize(parentPath, workingPath)

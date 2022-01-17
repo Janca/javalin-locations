@@ -25,13 +25,13 @@ fun main() {
 }
 
 fun ILocationBuilder.configureServiceAPI() {
-    head<ServiceAPI.Status> { ctx -> ctx.status(200) }
-    head<ServiceAPI.Status.API> { it.status(200) }
-    get<ServiceAPI.Uptime, ServiceAPI.Uptime.Response> {
+    head<Service.Status> { ctx -> ctx.status(200) }
+    head<Service.Status.API> { it.status(200) }
+    get<Service.Uptime, Service.Uptime.Response> {
         val uptimeMillis = System.currentTimeMillis() - SERVER_START_TIME_MS
 
         when {
-            raw -> ServiceAPI.Uptime.Response(uptimeMillis)
+            raw -> Service.Uptime.Response(uptimeMillis)
             else -> {
                 val duration = Duration.ofMillis(uptimeMillis)
                 val uptime = "%02d:%02d:%02d.%03d".format(
@@ -41,7 +41,7 @@ fun ILocationBuilder.configureServiceAPI() {
                     duration.nano.div(1000_000)
                 )
 
-                ServiceAPI.Uptime.Response(uptime)
+                Service.Uptime.Response(uptime)
             }
         }
     }
@@ -62,10 +62,10 @@ fun ILocationBuilder.configureAuthenticationAPI() {
     }
 }
 
-@Location("/service")
-object ServiceAPI {
+@Location
+object Service {
 
-    @Location("/status")
+    @Location
     object Status {
 
         @Location("/api")
@@ -73,7 +73,7 @@ object ServiceAPI {
 
     }
 
-    @Location("/uptime")
+    @Location
     class Uptime(@QueryParameter val raw: Boolean = false) {
         class Response(val uptime: Any)
     }

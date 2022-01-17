@@ -9,7 +9,7 @@
 <dependency>
     <groupId>io.javalin</groupId>
     <artifactId>javalin</artifactId>
-    <version>4.1.0</version>
+    <version>4.2.0</version>
 </dependency>
 ```
 
@@ -37,17 +37,24 @@ also be annotated with `@Location`.
 @Location("/some/test/route/{param1}") // <- required annotation for routing
 class TestRoute(val param1: String? = null) // <- param1 will be hydrated from the request, using query, form, or path parameters.
 
+@Location // <- route becomes `/test2` from class name; exact transform is (KClass<*>).simpleName.lowercase()
+class Test2
+
 javalin.locations {
     get<TestRoute> { ctx ->
         when {
             param1.isNullOrBlank() -> { // we have access to all the declared properties of TestRoute, currently scoped as `this`
                 ctx.status(400).result("Invalid parameter")
             }
-            
+
             else -> {
                 // TODO something
             }
         }
+    }
+
+    get<Test2> { ctx ->
+        ctx.status(200).result("Hello world.")
     }
 }
 ```
