@@ -26,7 +26,10 @@ fun main() {
 
 fun ILocationBuilder.configureServiceAPI() {
     head<Service.Status> { ctx -> ctx.status(200) }
+
     head<Service.Status.API> { it.status(200) }
+    post<Service.Status.API.A> { it.status(200) }
+
     get<Service.Uptime, Service.Uptime.Response> {
         val uptimeMillis = System.currentTimeMillis() - SERVER_START_TIME_MS
 
@@ -62,18 +65,23 @@ fun ILocationBuilder.configureAuthenticationAPI() {
     }
 }
 
-@Location
+@Location("/service")
 object Service {
 
-    @Location
+    @Location("/status")
     object Status {
 
         @Location("/api")
-        object API
+        object API {
+
+            @Location("")
+            class A(val flag: Int)
+
+        }
 
     }
 
-    @Location
+    @Location("/uptime")
     class Uptime(@QueryParameter val raw: Boolean = false) {
         class Response(val uptime: Any)
     }
